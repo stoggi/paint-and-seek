@@ -1,19 +1,18 @@
 package io.paintjob.client.paint
 
 import io.paintjob.Paintjob
+import io.paintjob.client.skin.PaintedSkinTextures
+import io.paintjob.net.SubmitSkinSnapshot
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.CameraType
 import net.minecraft.client.Minecraft
 
 /**
  * Client-side controller for "paint mode".
  *
- * Entering flips the camera to front third-person so the player sees their own
- * character standing in the world; they then paint the skin directly on the
- * model and sample colours from the surrounding environment. Leaving restores
- * the previous camera.
- *
- * Pose-freeze, input capture and the painting overlay are layered on top of this
- * in subsequent steps.
+ * Entering flips the camera to front third-person, seeds the painted skin from
+ * the player's current skin (so the model stays visible), and opens the
+ * non-pausing [PaintScreen]. Leaving restores the previous camera.
  */
 object PaintMode {
     var active = false
@@ -28,14 +27,33 @@ object PaintMode {
     fun enter() {
         if (active) return
         val mc = Minecraft.getInstance()
-        if (mc.player == null) return
+        val player = mc.player ?: return
+
+        // Seed the painted skin from the current skin and publish it as the base.
+        val pixels = SkinSeed.readCurrentSkin(mc)
+        PaintedSkinTextures.applySnapshot(player.uuid, pixels)
+        ClientPlayNetworking.send(SubmitSkinSnapshot(pixels))
+
         previousCamera = mc.options.cameraType
         mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT)
         active = true
+        mc.gui.setScreen(PaintScreen())
         Paintjob.LOGGER.info("Entered paint mode")
     }
 
+    /** Closes the paint screen (which restores the camera via [restoreCamera]). */
     fun exit() {
+        if (!active) return
+        val mc = Minecraft.getInstance()
+        if (mc.gui.screen() is PaintScreen) {
+            mc.gui.setScreen(null) // triggers PaintScreen.removed() -> restoreCamera()
+        } else {
+            restoreCamera()
+        }
+    }
+
+    /** Restore the pre-paint camera. Idempotent; safe to call from screen teardown. */
+    fun restoreCamera() {
         if (!active) return
         Minecraft.getInstance().options.setCameraType(previousCamera)
         active = false

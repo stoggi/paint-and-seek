@@ -34,7 +34,7 @@ object PaintjobClient : ClientModInitializer {
 
         // Don't leak GPU textures across server hops; also leave paint mode.
         ClientPlayConnectionEvents.DISCONNECT.register { _, _ ->
-            PaintMode.exit()
+            PaintMode.restoreCamera()
             PaintedSkinTextures.clearAll()
         }
     }
