@@ -12,6 +12,7 @@ import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.client.renderer.RenderPipelines
 import net.minecraft.network.chat.Component
 import kotlin.math.roundToInt
+import kotlin.math.tan
 
 /**
  * The painting overlay. Does NOT pause the game and draws no background, so the
@@ -140,7 +141,17 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
         val y1 = (hit.texelY + r).coerceIn(0, SkinImage.HEIGHT - 1)
         val w = x1 - x0 + 1
         val h = y1 - y0 + 1
-        val pixels = IntArray(w * h) { PaintState.effectivePaintColor() }
+        val color = PaintState.effectivePaintColor()
+        // When erasing the overlay, restrict to overlay-owned texels so a stroke
+        // can never clear texels that belong to the base skin.
+        val erasing = PaintState.transparentMode && PaintState.layer == SkinLayer.OVERLAY
+        val mask = if (erasing) PlayerModelGeometry.layerMask(PaintState.modelType(mc), SkinLayer.OVERLAY) else null
+        val pixels = IntArray(w * h) { idx ->
+            val gx = x0 + idx % w
+            val gy = y0 + idx / w
+            if (mask == null || mask[gy * SkinImage.WIDTH + gx]) color
+            else PaintedSkinTextures.pixel(player.uuid, gx, gy)
+        }
         val rect = SkinRect(x0, y0, w, h, pixels)
 
         PaintedSkinTextures.applyPatch(player.uuid, rect)
@@ -165,8 +176,14 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
 
         PaintCamera.pollKeys(mc)
 
-        if (!overUi(mouseX.toDouble(), mouseY.toDouble())) {
+        val overUi = overUi(mouseX.toDouble(), mouseY.toDouble())
+        if (!overUi) {
             PaintState.lastHit = PaintRaycaster.pick(mc, mouseX.toDouble(), mouseY.toDouble(), width, height, PaintState.modelType(mc), PaintState.layer)
+        }
+
+        // Brush footprint highlight on the model (sized to brush + zoom).
+        if (!overUi && PaintState.lastHit != null) {
+            renderBrushHighlight(graphics, mc, mouseX, mouseY)
         }
 
         // Reticle with a centre gap, so eye-dropping samples the world, not the reticle.
@@ -233,6 +250,25 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
         graphics.fill(toggleX, toggleY, toggleX + toggleW, toggleY + toggleH, grey)
         val layerName = if (PaintState.layer == SkinLayer.OVERLAY) "Overlay" else "Base"
         graphics.text(this.font, "Layer: $layerName", toggleX + 6, toggleY + 5, white, true)
+    }
+
+    /** A square outline at the cursor showing the brush footprint on the model. */
+    private fun renderBrushHighlight(graphics: GuiGraphicsExtractor, mc: net.minecraft.client.Minecraft, mouseX: Int, mouseY: Int) {
+        val fovRad = Math.toRadians(mc.gameRenderer.mainCamera().fov.toDouble())
+        val pxPerBlock = height / (2.0 * PaintCamera.distance * tan(fovRad / 2.0))
+        val texelPx = pxPerBlock / 16.0 // a skin texel is 1/16 block
+        val half = ((PaintState.brushRadius + 0.5) * texelPx).toInt().coerceIn(2, 400)
+        val preview = if (PaintState.transparentMode) 0xFFFFFFFF.toInt() else (PaintState.colorArgb or (0xFF shl 24))
+        squareOutline(graphics, mouseX, mouseY, half, 0xFF000000.toInt())
+        squareOutline(graphics, mouseX, mouseY, half - 1, preview)
+    }
+
+    private fun squareOutline(graphics: GuiGraphicsExtractor, cx: Int, cy: Int, half: Int, color: Int) {
+        if (half < 1) return
+        graphics.fill(cx - half, cy - half, cx + half, cy - half + 1, color)
+        graphics.fill(cx - half, cy + half - 1, cx + half, cy + half, color)
+        graphics.fill(cx - half, cy - half, cx - half + 1, cy + half, color)
+        graphics.fill(cx + half - 1, cy - half, cx + half, cy + half, color)
     }
 
     private fun renderHud(graphics: GuiGraphicsExtractor) {

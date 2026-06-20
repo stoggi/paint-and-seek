@@ -30,6 +30,10 @@ object PaintedSkinTextures {
 
     fun has(uuid: UUID): Boolean = entries.containsKey(uuid)
 
+    /** Current ARGB value of a texel for [uuid] (0 if none). */
+    fun pixel(uuid: UUID, x: Int, y: Int): Int =
+        entries[uuid]?.image?.getPixel(x, y) ?: 0
+
     /** Replace the whole skin for [uuid] with [pixels] (ARGB, 64x64 row-major). */
     fun applySnapshot(uuid: UUID, pixels: IntArray) {
         require(pixels.size == SkinImage.WIDTH * SkinImage.HEIGHT) { "snapshot must be 64x64" }

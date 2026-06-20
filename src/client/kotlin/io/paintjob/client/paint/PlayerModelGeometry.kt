@@ -1,5 +1,6 @@
 package io.paintjob.client.paint
 
+import io.paintjob.skin.SkinImage
 import org.joml.Vector3f
 
 /** Wide ("default") or slim ("Alex") arm geometry. */
@@ -40,6 +41,12 @@ class ModelFace(
 ) {
     private val edgeULenSq = edgeU.lengthSquared()
     private val edgeVLenSq = edgeV.lengthSquared()
+
+    /** This face's texel rectangle (skin-pixel bounds), half-open. */
+    val texMinX = minOf(uA, uB).toInt()
+    val texMaxX = maxOf(uA, uB).toInt()
+    val texMinY = minOf(vA, vB).toInt()
+    val texMaxY = maxOf(vA, vB).toInt()
 
     /**
      * Intersect a ray (in model space) with this face. Returns the hit distance
@@ -87,9 +94,30 @@ class ModelFace(
 
 object PlayerModelGeometry {
     private val cache = HashMap<Pair<SkinModelType, SkinLayer>, List<ModelFace>>()
+    private val maskCache = HashMap<Pair<SkinModelType, SkinLayer>, BooleanArray>()
 
     fun faces(type: SkinModelType, layer: SkinLayer): List<ModelFace> =
         cache.getOrPut(type to layer) { buildModel(type, layer) }
+
+    /**
+     * Texels (64x64) owned by the given [layer]'s faces. Used to keep an eraser
+     * stroke from clearing texels that belong to the other layer — in particular
+     * so painting transparency on the overlay can never clear the base skin.
+     */
+    fun layerMask(type: SkinModelType, layer: SkinLayer): BooleanArray =
+        maskCache.getOrPut(type to layer) {
+            val mask = BooleanArray(SkinImage.WIDTH * SkinImage.HEIGHT)
+            for (face in faces(type, layer)) {
+                for (ty in face.texMinY until face.texMaxY) {
+                    for (tx in face.texMinX until face.texMaxX) {
+                        if (tx in 0 until SkinImage.WIDTH && ty in 0 until SkinImage.HEIGHT) {
+                            mask[ty * SkinImage.WIDTH + tx] = true
+                        }
+                    }
+                }
+            }
+            mask
+        }
 
     /**
      * Cast a ray (model space, neutral pose) against the chosen skin [layer] and
