@@ -25,20 +25,46 @@ object PaintState {
 
     /** Which skin layer is being painted/picked. */
     var layer: SkinLayer = SkinLayer.BASE
+        private set
+
+    /** Transparent ("eraser") mode — only valid on the overlay layer. */
+    var transparentMode: Boolean = false
+        private set
 
     /** Most recent pick, for the debug HUD. */
     var lastHit: TexelHit? = null
 
     const val MAX_BRUSH_RADIUS = 6
 
+    fun toggleLayer() {
+        layer = if (layer == SkinLayer.BASE) SkinLayer.OVERLAY else SkinLayer.BASE
+        if (layer == SkinLayer.BASE) transparentMode = false // base can't be transparent
+    }
+
+    /** Select transparent painting (only the overlay may be cleared). */
+    fun selectTransparent() {
+        if (layer == SkinLayer.OVERLAY) transparentMode = true
+    }
+
+    /** Go back to painting the picked colour. */
+    fun selectColor() {
+        transparentMode = false
+    }
+
+    /** The colour a stroke writes: transparent only when allowed, else the picked colour. */
+    fun effectivePaintColor(): Int =
+        if (transparentMode && layer == SkinLayer.OVERLAY) 0 else colorArgb
+
     fun setHueSat(h: Float, s: Float) {
         hue = h.coerceIn(0f, 1f)
         sat = s.coerceIn(0f, 1f)
+        transparentMode = false
         recompute()
     }
 
     fun setValue(v: Float) {
         value = v.coerceIn(0f, 1f)
+        transparentMode = false
         recompute()
     }
 
@@ -48,6 +74,7 @@ object PaintState {
         hue = hsv[0]
         sat = hsv[1]
         value = hsv[2]
+        transparentMode = false
         recompute()
     }
 
