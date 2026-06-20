@@ -22,25 +22,32 @@ object SkinSeed {
         if (player != null) {
             val id = player.skin.body().texturePath()
             val resource = mc.resourceManager.getResource(id).orElse(null)
-            if (resource != null) {
-                try {
-                    resource.open().use { stream ->
-                        NativeImage.read(stream).use { image ->
-                            if (image.width == SkinImage.WIDTH && image.height == SkinImage.HEIGHT) {
-                                val pixels = IntArray(SIZE)
-                                var i = 0
-                                for (y in 0 until SkinImage.HEIGHT) {
-                                    for (x in 0 until SkinImage.WIDTH) {
-                                        pixels[i++] = image.getPixel(x, y)
-                                    }
+            if (resource == null) {
+                Paintjob.LOGGER.warn("SkinSeed: no resource for skin '{}' — using grey base", id)
+                return greyBase()
+            }
+            try {
+                resource.open().use { stream ->
+                    NativeImage.read(stream).use { image ->
+                        if (image.width == SkinImage.WIDTH && image.height == SkinImage.HEIGHT) {
+                            val pixels = IntArray(SIZE)
+                            var i = 0
+                            for (y in 0 until SkinImage.HEIGHT) {
+                                for (x in 0 until SkinImage.WIDTH) {
+                                    pixels[i++] = image.getPixel(x, y)
                                 }
-                                return pixels
                             }
+                            Paintjob.LOGGER.info("SkinSeed: seeded from skin '{}'", id)
+                            return pixels
                         }
+                        Paintjob.LOGGER.warn(
+                            "SkinSeed: skin '{}' is {}x{}, expected {}x{} — using grey base",
+                            id, image.width, image.height, SkinImage.WIDTH, SkinImage.HEIGHT,
+                        )
                     }
-                } catch (e: Exception) {
-                    Paintjob.LOGGER.warn("Couldn't read current skin {} to seed painting", id, e)
                 }
+            } catch (e: Exception) {
+                Paintjob.LOGGER.warn("SkinSeed: couldn't read skin '{}' — using grey base", id, e)
             }
         }
         return greyBase()

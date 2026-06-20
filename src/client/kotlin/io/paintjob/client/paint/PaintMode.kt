@@ -29,10 +29,14 @@ object PaintMode {
         val mc = Minecraft.getInstance()
         val player = mc.player ?: return
 
-        // Seed the painted skin from the current skin and publish it as the base.
-        val pixels = SkinSeed.readCurrentSkin(mc)
-        PaintedSkinTextures.applySnapshot(player.uuid, pixels)
-        ClientPlayNetworking.send(SubmitSkinSnapshot(pixels))
+        // Seed the painted skin from the current skin ONLY the first time — once a
+        // painted skin exists, re-entering must keep the player's progress (and we
+        // must not read back our own painted texture, which isn't a resource).
+        if (!PaintedSkinTextures.has(player.uuid)) {
+            val pixels = SkinSeed.readCurrentSkin(mc)
+            PaintedSkinTextures.applySnapshot(player.uuid, pixels)
+            ClientPlayNetworking.send(SubmitSkinSnapshot(pixels))
+        }
 
         previousCamera = mc.options.cameraType
         mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT)
