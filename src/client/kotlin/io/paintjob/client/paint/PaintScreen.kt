@@ -24,6 +24,15 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
 
     override fun isPauseScreen(): Boolean = false
 
+    // Route to the in-game-UI background path (no menu blur)...
+    override fun isInGameUi(): Boolean = true
+
+    // ...and make that background draw nothing, so the world stays fully crisp
+    // for colour-matching (the default in-game background darkens with a gradient).
+    override fun extractTransparentBackground(graphics: GuiGraphicsExtractor) {
+        // intentionally empty
+    }
+
     override fun removed() {
         PaintMode.restoreCamera()
     }
