@@ -3,7 +3,8 @@
 	"package": "io.paintjob.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"AbstractClientPlayerMixin"
+		"AbstractClientPlayerMixin",
+		"CameraMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

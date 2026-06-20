@@ -38,6 +38,7 @@ object PaintMode {
             ClientPlayNetworking.send(SubmitSkinSnapshot(pixels))
         }
 
+        PaintCamera.reset(player)
         previousCamera = mc.options.cameraType
         mc.options.setCameraType(CameraType.THIRD_PERSON_FRONT)
         active = true

@@ -51,6 +51,11 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
         return super.mouseDragged(event, dragX, dragY)
     }
 
+    override fun mouseScrolled(x: Double, y: Double, scrollX: Double, scrollY: Double): Boolean {
+        PaintCamera.zoom(scrollY)
+        return true
+    }
+
     /** Route a click/drag to the colour UI, the eye-dropper, or painting. */
     private fun handlePointer(x: Double, y: Double, button: Int): Boolean {
         when (button) {
@@ -119,6 +124,9 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
 
     override fun extractRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {
         val mc = minecraft
+
+        // Orbit the camera from held WASD / arrow keys.
+        PaintCamera.pollKeys(mc)
 
         // Live pick under the cursor for the debug readout (no painting).
         if (!inWheel(mouseX.toDouble(), mouseY.toDouble()) && !inSlider(mouseX.toDouble(), mouseY.toDouble())) {
