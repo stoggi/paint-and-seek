@@ -5,59 +5,87 @@ import io.paintjob.net.SkinRect
 import io.paintjob.net.SubmitSkinPatch
 import io.paintjob.skin.SkinImage
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
+import net.minecraft.client.Screenshot
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.input.MouseButtonEvent
+import net.minecraft.client.renderer.RenderPipelines
 import net.minecraft.network.chat.Component
 
 /**
- * The painting overlay. It does NOT pause the game, so the world (and the
- * player, in front third-person) keeps rendering behind it; freeing the cursor
- * lets us aim. Left-click / drag paints the skin texel under the cursor directly
- * on the model.
+ * The painting overlay. Does NOT pause the game and draws no background, so the
+ * world + the player (front third-person) stay crisp behind it.
  *
- * This first version paints a solid [PaintState.colorArgb] with a debug readout
- * of the picked body part + texel for calibration. The colour wheel, eye-dropper
- * and stroke coalescing layer on top next.
+ * Controls:
+ *  - Left-click / drag on the model: paint the picked texel.
+ *  - Right-click anywhere: eye-dropper — sample the on-screen pixel as the colour.
+ *  - Colour wheel (hue/sat) + value slider (bottom-left): pick a custom colour.
  */
 class PaintScreen : Screen(Component.literal("Paintjob")) {
 
+    private val wheelX get() = 12
+    private val wheelY get() = height - 12 - ColorWheel.SIZE
+    private val sliderX get() = wheelX + ColorWheel.SIZE + 10
+    private val sliderY get() = wheelY
+    private val sliderW = 14
+    private val sliderH get() = ColorWheel.SIZE
+    private val swatchX get() = wheelX
+    private val swatchY get() = wheelY - 28
+    private val swatchSize = 24
+
     override fun isPauseScreen(): Boolean = false
-
-    // Route to the in-game-UI background path (no menu blur)...
     override fun isInGameUi(): Boolean = true
-
-    // ...and make that background draw nothing, so the world stays fully crisp
-    // for colour-matching (the default in-game background darkens with a gradient).
-    override fun extractTransparentBackground(graphics: GuiGraphicsExtractor) {
-        // intentionally empty
-    }
+    override fun extractTransparentBackground(graphics: GuiGraphicsExtractor) { /* keep world crisp */ }
 
     override fun removed() {
         PaintMode.restoreCamera()
     }
 
     override fun mouseClicked(event: MouseButtonEvent, doubleClick: Boolean): Boolean {
-        if (event.button() == 0) {
-            paintAt(event.x(), event.y())
-            return true
-        }
+        if (handlePointer(event.x(), event.y(), event.button())) return true
         return super.mouseClicked(event, doubleClick)
     }
 
     override fun mouseDragged(event: MouseButtonEvent, dragX: Double, dragY: Double): Boolean {
-        if (event.button() == 0) {
-            paintAt(event.x(), event.y())
-            return true
-        }
+        if (handlePointer(event.x(), event.y(), event.button())) return true
         return super.mouseDragged(event, dragX, dragY)
     }
+
+    /** Route a click/drag to the colour UI, the eye-dropper, or painting. */
+    private fun handlePointer(x: Double, y: Double, button: Int): Boolean {
+        when (button) {
+            0 -> {
+                if (inWheel(x, y)) {
+                    ColorWheel.sample((x - wheelX).toFloat(), (y - wheelY).toFloat())?.let {
+                        PaintState.setHueSat(it.first, it.second)
+                    }
+                    return true
+                }
+                if (inSlider(x, y)) {
+                    PaintState.setValue(1f - ((y - sliderY) / sliderH).toFloat())
+                    return true
+                }
+                paintAt(x, y)
+                return true
+            }
+            1 -> {
+                eyedropAt(x, y)
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun inWheel(x: Double, y: Double) =
+        x >= wheelX && x < wheelX + ColorWheel.SIZE && y >= wheelY && y < wheelY + ColorWheel.SIZE
+
+    private fun inSlider(x: Double, y: Double) =
+        x >= sliderX && x < sliderX + sliderW && y >= sliderY && y < sliderY + sliderH
 
     private fun paintAt(mouseX: Double, mouseY: Double) {
         val mc = minecraft
         val player = mc.player ?: return
-        val type = PaintState.modelType(mc)
-        val hit = PaintRaycaster.pick(mc, mouseX, mouseY, width, height, type)
+        val hit = PaintRaycaster.pick(mc, mouseX, mouseY, width, height, PaintState.modelType(mc))
         PaintState.lastHit = hit
         if (hit == null) return
 
@@ -71,32 +99,71 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
         val pixels = IntArray(w * h) { PaintState.colorArgb }
         val rect = SkinRect(x0, y0, w, h, pixels)
 
-        // Apply locally for instant feedback, then sync to the server.
         PaintedSkinTextures.applyPatch(player.uuid, rect)
         ClientPlayNetworking.send(SubmitSkinPatch(rect))
     }
 
-    override fun extractRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {
-        // Live pick under the cursor (for the debug readout), without painting.
+    /** Sample the rendered pixel under the cursor and adopt it as the colour. */
+    private fun eyedropAt(mouseX: Double, mouseY: Double) {
         val mc = minecraft
-        PaintState.lastHit = PaintRaycaster.pick(mc, mouseX.toDouble(), mouseY.toDouble(), width, height, PaintState.modelType(mc))
+        val target = mc.gameRenderer.mainRenderTarget()
+        val sw = width.toDouble()
+        val sh = height.toDouble()
+        Screenshot.takeScreenshot(target) { image ->
+            val fx = (mouseX / sw * image.width).toInt().coerceIn(0, image.width - 1)
+            val fy = (mouseY / sh * image.height).toInt().coerceIn(0, image.height - 1)
+            PaintState.setFromArgb(image.getPixel(fx, fy) or (0xFF shl 24))
+            image.close()
+        }
+    }
 
-        // Reticle.
-        graphics.fill(mouseX - 6, mouseY, mouseX + 7, mouseY + 1, 0xFFFFFFFF.toInt())
-        graphics.fill(mouseX, mouseY - 6, mouseX + 1, mouseY + 7, 0xFFFFFFFF.toInt())
+    override fun extractRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {
+        val mc = minecraft
+
+        // Live pick under the cursor for the debug readout (no painting).
+        if (!inWheel(mouseX.toDouble(), mouseY.toDouble()) && !inSlider(mouseX.toDouble(), mouseY.toDouble())) {
+            PaintState.lastHit = PaintRaycaster.pick(mc, mouseX.toDouble(), mouseY.toDouble(), width, height, PaintState.modelType(mc))
+        }
+
+        // Reticle with a centre gap, so eye-dropping samples the world, not the reticle.
+        val white = 0xFFFFFFFF.toInt()
+        graphics.fill(mouseX - 8, mouseY, mouseX - 2, mouseY + 1, white)
+        graphics.fill(mouseX + 3, mouseY, mouseX + 9, mouseY + 1, white)
+        graphics.fill(mouseX, mouseY - 8, mouseX + 1, mouseY - 2, white)
+        graphics.fill(mouseX, mouseY + 3, mouseX + 1, mouseY + 9, white)
+
+        renderColorPicker(graphics)
+
+        // Debug + help text.
+        val hit = PaintState.lastHit
+        val text = if (hit != null) "${hit.part} texel (${hit.texelX}, ${hit.texelY})" else "no hit — aim at your character"
+        graphics.text(this.font, text, swatchX + swatchSize + 8, swatchY + 2, white, true)
+        graphics.text(this.font, "L-click paint · R-click eye-dropper · Esc exit", swatchX + swatchSize + 8, swatchY + 14, 0xFFBBBBBB.toInt(), true)
+    }
+
+    private fun renderColorPicker(graphics: GuiGraphicsExtractor) {
+        val black = 0xFF000000.toInt()
+        val white = 0xFFFFFFFF.toInt()
 
         // Current colour swatch.
-        graphics.fill(8, 8, 32, 32, 0xFF000000.toInt())
-        graphics.fill(9, 9, 31, 31, PaintState.colorArgb)
+        graphics.fill(swatchX - 1, swatchY - 1, swatchX + swatchSize + 1, swatchY + swatchSize + 1, black)
+        graphics.fill(swatchX, swatchY, swatchX + swatchSize, swatchY + swatchSize, PaintState.colorArgb)
 
-        // Debug readout.
-        val hit = PaintState.lastHit
-        val text = if (hit != null) {
-            "${hit.part} texel (${hit.texelX}, ${hit.texelY})  d=${"%.2f".format(hit.distance)}"
-        } else {
-            "no hit — aim at your character"
-        }
-        graphics.text(this.font, text, 40, 14, 0xFFFFFFFF.toInt(), true)
-        graphics.text(this.font, "Left-click to paint · Esc to exit", 40, 26, 0xFFAAAAAA.toInt(), true)
+        // Hue/sat wheel.
+        graphics.blit(
+            RenderPipelines.GUI_TEXTURED, ColorWheel.textureId(),
+            wheelX, wheelY, 0f, 0f, ColorWheel.SIZE, ColorWheel.SIZE, ColorWheel.SIZE, ColorWheel.SIZE,
+        )
+        val (ix, iy) = ColorWheel.indicatorOffset(PaintState.hue, PaintState.sat)
+        val cx = wheelX + ix.toInt()
+        val cy = wheelY + iy.toInt()
+        graphics.fill(cx - 2, cy - 2, cx + 2, cy + 2, black)
+        graphics.fill(cx - 1, cy - 1, cx + 1, cy + 1, white)
+
+        // Value slider (full-value colour -> black), with a marker.
+        graphics.fill(sliderX - 1, sliderY - 1, sliderX + sliderW + 1, sliderY + sliderH + 1, black)
+        graphics.fillGradient(sliderX, sliderY, sliderX + sliderW, sliderY + sliderH, ColorUtil.hsvToArgb(PaintState.hue, PaintState.sat, 1f), black)
+        val my = sliderY + ((1f - PaintState.value) * sliderH).toInt()
+        graphics.fill(sliderX - 2, my - 1, sliderX + sliderW + 2, my + 1, white)
     }
 }
