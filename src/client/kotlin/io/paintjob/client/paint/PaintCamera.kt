@@ -37,8 +37,8 @@ object PaintCamera {
     /** Poll held orbit keys (called once per frame). */
     fun pollKeys(mc: Minecraft) {
         val window = mc.window
-        if (down(window, GLFW.GLFW_KEY_A) || down(window, GLFW.GLFW_KEY_LEFT)) yaw -= ORBIT_SPEED
-        if (down(window, GLFW.GLFW_KEY_D) || down(window, GLFW.GLFW_KEY_RIGHT)) yaw += ORBIT_SPEED
+        if (down(window, GLFW.GLFW_KEY_A) || down(window, GLFW.GLFW_KEY_LEFT)) yaw += ORBIT_SPEED
+        if (down(window, GLFW.GLFW_KEY_D) || down(window, GLFW.GLFW_KEY_RIGHT)) yaw -= ORBIT_SPEED
         if (down(window, GLFW.GLFW_KEY_W) || down(window, GLFW.GLFW_KEY_UP)) pitch += ORBIT_SPEED
         if (down(window, GLFW.GLFW_KEY_S) || down(window, GLFW.GLFW_KEY_DOWN)) pitch -= ORBIT_SPEED
         pitch = pitch.coerceIn(-89f, 89f)
