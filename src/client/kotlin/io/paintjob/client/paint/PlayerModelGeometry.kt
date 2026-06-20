@@ -5,6 +5,9 @@ import org.joml.Vector3f
 /** Wide ("default") or slim ("Alex") arm geometry. */
 enum class SkinModelType { WIDE, SLIM }
 
+/** Base skin layer, or the inflated overlay ("second layer": hat/jacket/sleeves/pants). */
+enum class SkinLayer { BASE, OVERLAY }
+
 enum class BodyPart { HEAD, BODY, RIGHT_ARM, LEFT_ARM, RIGHT_LEG, LEFT_LEG }
 
 /** Result of a successful pick: which skin texel the cursor ray landed on. */
@@ -83,20 +86,19 @@ class ModelFace(
 }
 
 object PlayerModelGeometry {
-    private val wideFaces: List<ModelFace> = buildModel(SkinModelType.WIDE)
-    private val slimFaces: List<ModelFace> = buildModel(SkinModelType.SLIM)
+    private val cache = HashMap<Pair<SkinModelType, SkinLayer>, List<ModelFace>>()
 
-    fun faces(type: SkinModelType): List<ModelFace> =
-        if (type == SkinModelType.SLIM) slimFaces else wideFaces
+    fun faces(type: SkinModelType, layer: SkinLayer): List<ModelFace> =
+        cache.getOrPut(type to layer) { buildModel(type, layer) }
 
     /**
-     * Cast a ray (model space, neutral pose) against the player model and return
-     * the nearest front-facing skin texel, or null on a miss.
+     * Cast a ray (model space, neutral pose) against the chosen skin [layer] and
+     * return the nearest front-facing skin texel, or null on a miss.
      */
-    fun raycast(rayOrigin: Vector3f, rayDir: Vector3f, type: SkinModelType): TexelHit? {
+    fun raycast(rayOrigin: Vector3f, rayDir: Vector3f, type: SkinModelType, layer: SkinLayer): TexelHit? {
         var bestT = Float.MAX_VALUE
         var bestFace: ModelFace? = null
-        for (face in faces(type)) {
+        for (face in faces(type, layer)) {
             val t = face.intersect(rayOrigin, rayDir) ?: continue
             if (t < bestT) {
                 bestT = t
@@ -108,17 +110,26 @@ object PlayerModelGeometry {
         return TexelHit(face.part, tx, ty, bestT)
     }
 
-    private fun buildModel(type: SkinModelType): List<ModelFace> {
+    private fun buildModel(type: SkinModelType, layer: SkinLayer): List<ModelFace> {
         val armW = if (type == SkinModelType.SLIM) 3f else 4f
         val faces = ArrayList<ModelFace>(36)
-        // part, texU, texV, box origin (relative to pivot), w,h,d, pivot
-        // Base layer only (overlay/hat/jacket can be layered later).
-        box(faces, BodyPart.HEAD, 0, 0, -4f, -8f, -4f, 8f, 8f, 8f, 0f, 0f, 0f)
-        box(faces, BodyPart.BODY, 16, 16, -4f, 0f, -2f, 8f, 12f, 4f, 0f, 0f, 0f)
-        box(faces, BodyPart.RIGHT_ARM, 40, 16, -armW + 1f, -2f, -2f, armW, 12f, 4f, -5f, 2f, 0f)
-        box(faces, BodyPart.LEFT_ARM, 32, 48, -1f, -2f, -2f, armW, 12f, 4f, 5f, 2f, 0f)
-        box(faces, BodyPart.RIGHT_LEG, 0, 16, -2f, 0f, -2f, 4f, 12f, 4f, -1.9f, 12f, 0f)
-        box(faces, BodyPart.LEFT_LEG, 16, 48, -2f, 0f, -2f, 4f, 12f, 4f, 1.9f, 12f, 0f)
+        // part, texU, texV, box origin (relative to pivot), w,h,d, pivot, grow
+        if (layer == SkinLayer.BASE) {
+            box(faces, BodyPart.HEAD, 0, 0, -4f, -8f, -4f, 8f, 8f, 8f, 0f, 0f, 0f)
+            box(faces, BodyPart.BODY, 16, 16, -4f, 0f, -2f, 8f, 12f, 4f, 0f, 0f, 0f)
+            box(faces, BodyPart.RIGHT_ARM, 40, 16, -armW + 1f, -2f, -2f, armW, 12f, 4f, -5f, 2f, 0f)
+            box(faces, BodyPart.LEFT_ARM, 32, 48, -1f, -2f, -2f, armW, 12f, 4f, 5f, 2f, 0f)
+            box(faces, BodyPart.RIGHT_LEG, 0, 16, -2f, 0f, -2f, 4f, 12f, 4f, -1.9f, 12f, 0f)
+            box(faces, BodyPart.LEFT_LEG, 16, 48, -2f, 0f, -2f, 4f, 12f, 4f, 1.9f, 12f, 0f)
+        } else {
+            // Overlay ("second layer"): hat/jacket/sleeves/pants, slightly inflated.
+            box(faces, BodyPart.HEAD, 32, 0, -4f, -8f, -4f, 8f, 8f, 8f, 0f, 0f, 0f, 0.5f)
+            box(faces, BodyPart.BODY, 16, 32, -4f, 0f, -2f, 8f, 12f, 4f, 0f, 0f, 0f, 0.25f)
+            box(faces, BodyPart.RIGHT_ARM, 40, 32, -armW + 1f, -2f, -2f, armW, 12f, 4f, -5f, 2f, 0f, 0.25f)
+            box(faces, BodyPart.LEFT_ARM, 48, 48, -1f, -2f, -2f, armW, 12f, 4f, 5f, 2f, 0f, 0.25f)
+            box(faces, BodyPart.RIGHT_LEG, 0, 32, -2f, 0f, -2f, 4f, 12f, 4f, -1.9f, 12f, 0f, 0.25f)
+            box(faces, BodyPart.LEFT_LEG, 0, 48, -2f, 0f, -2f, 4f, 12f, 4f, 1.9f, 12f, 0f, 0.25f)
+        }
         return faces
     }
 
@@ -131,13 +142,16 @@ object PlayerModelGeometry {
         ox: Float, oy: Float, oz: Float,
         w: Float, h: Float, d: Float,
         pivotX: Float, pivotY: Float, pivotZ: Float,
+        grow: Float = 0f,
     ) {
-        val minX = pivotX + ox
-        val minY = pivotY + oy
-        val minZ = pivotZ + oz
-        val maxX = minX + w
-        val maxY = minY + h
-        val maxZ = minZ + d
+        // Geometry is inflated by [grow] (overlay layers), but the UV unwrap still
+        // uses the original w/h/d — exactly as ModelPart.Cube does.
+        val minX = pivotX + ox - grow
+        val minY = pivotY + oy - grow
+        val minZ = pivotZ + oz - grow
+        val maxX = pivotX + ox + w + grow
+        val maxY = pivotY + oy + h + grow
+        val maxZ = pivotZ + oz + d + grow
 
         // Vertices, matching ModelPart.Cube naming (t* = min Z, l* = max Z).
         val t0 = Vector3f(minX, minY, minZ)

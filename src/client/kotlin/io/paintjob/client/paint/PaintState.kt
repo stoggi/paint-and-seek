@@ -23,8 +23,13 @@ object PaintState {
     /** Brush radius in texels (0 = single pixel, 1 = 3x3, ...). */
     var brushRadius: Int = 1
 
+    /** Which skin layer is being painted/picked. */
+    var layer: SkinLayer = SkinLayer.BASE
+
     /** Most recent pick, for the debug HUD. */
     var lastHit: TexelHit? = null
+
+    const val MAX_BRUSH_RADIUS = 6
 
     fun setHueSat(h: Float, s: Float) {
         hue = h.coerceIn(0f, 1f)
