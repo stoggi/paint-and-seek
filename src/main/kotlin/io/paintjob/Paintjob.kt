@@ -1,5 +1,6 @@
 package io.paintjob
 
+import io.paintjob.item.PaintjobItems
 import io.paintjob.net.PaintNetworking
 import net.fabricmc.api.ModInitializer
 import net.minecraft.resources.Identifier
@@ -11,6 +12,7 @@ object Paintjob : ModInitializer {
     val LOGGER = LoggerFactory.getLogger(MOD_ID)
 
 	override fun onInitialize() {
+		PaintjobItems.register()
 		PaintNetworking.registerPayloads()
 		PaintNetworking.registerServerHandlers()
 		LOGGER.info("paintjob initialized")

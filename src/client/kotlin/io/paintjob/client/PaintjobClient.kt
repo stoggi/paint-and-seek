@@ -1,12 +1,17 @@
 package io.paintjob.client
 
+import io.paintjob.client.paint.PaintMode
 import io.paintjob.client.skin.PaintedSkinTextures
+import io.paintjob.item.PaintjobItems
 import io.paintjob.net.ClearSkin
 import io.paintjob.net.SkinPatch
 import io.paintjob.net.SkinSnapshot
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
+import net.fabricmc.fabric.api.event.player.UseItemCallback
+import net.minecraft.client.Minecraft
+import net.minecraft.world.InteractionResult
 
 object PaintjobClient : ClientModInitializer {
     override fun onInitializeClient() {
@@ -14,8 +19,24 @@ object PaintjobClient : ClientModInitializer {
         // client-side); here we only add the client-bound receivers.
         registerClientReceivers()
 
-        // Don't leak GPU textures across server hops.
-        ClientPlayConnectionEvents.DISCONNECT.register { _, _ -> PaintedSkinTextures.clearAll() }
+        // Right-clicking the paint brush toggles paint mode (front third-person view).
+        UseItemCallback.EVENT.register { player, level, hand ->
+            if (level.isClientSide &&
+                player === Minecraft.getInstance().player &&
+                player.getItemInHand(hand).item === PaintjobItems.paintBrush
+            ) {
+                PaintMode.toggle()
+                InteractionResult.SUCCESS
+            } else {
+                InteractionResult.PASS
+            }
+        }
+
+        // Don't leak GPU textures across server hops; also leave paint mode.
+        ClientPlayConnectionEvents.DISCONNECT.register { _, _ ->
+            PaintMode.exit()
+            PaintedSkinTextures.clearAll()
+        }
     }
 
     private fun registerClientReceivers() {
