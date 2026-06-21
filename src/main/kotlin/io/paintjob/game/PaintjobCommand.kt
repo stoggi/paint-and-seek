@@ -1,5 +1,6 @@
 package io.paintjob.game
 
+import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.context.CommandContext
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.minecraft.commands.CommandSourceStack
@@ -8,7 +9,8 @@ import net.minecraft.commands.arguments.EntityArgument
 import net.minecraft.server.level.ServerPlayer
 
 /**
- * `/paintjob newround [seeker]` and `/paintjob endround` (operators only).
+ * `/paintjob newround [seeker] [hideTime] [seekTime]` and `/paintjob endround`
+ * (operators only). Times are in seconds; defaults 120 (hide) / 300 (seek).
  */
 object PaintjobCommand {
     fun register() {
@@ -18,10 +20,18 @@ object PaintjobCommand {
                     .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
                     .then(
                         Commands.literal("newround")
-                            .executes { ctx -> newRound(ctx, null) }
+                            .executes { ctx -> newRound(ctx, null, GameManager.DEFAULT_HIDE_SECONDS, GameManager.DEFAULT_SEEK_SECONDS) }
                             .then(
                                 Commands.argument("seeker", EntityArgument.player())
-                                    .executes { ctx -> newRound(ctx, EntityArgument.getPlayer(ctx, "seeker")) },
+                                    .executes { ctx -> newRound(ctx, seekerOf(ctx), GameManager.DEFAULT_HIDE_SECONDS, GameManager.DEFAULT_SEEK_SECONDS) }
+                                    .then(
+                                        Commands.argument("hideTime", IntegerArgumentType.integer(0))
+                                            .executes { ctx -> newRound(ctx, seekerOf(ctx), intOf(ctx, "hideTime"), GameManager.DEFAULT_SEEK_SECONDS) }
+                                            .then(
+                                                Commands.argument("seekTime", IntegerArgumentType.integer(1))
+                                                    .executes { ctx -> newRound(ctx, seekerOf(ctx), intOf(ctx, "hideTime"), intOf(ctx, "seekTime")) },
+                                            ),
+                                    ),
                             ),
                     )
                     .then(
@@ -32,8 +42,11 @@ object PaintjobCommand {
         }
     }
 
-    private fun newRound(ctx: CommandContext<CommandSourceStack>, seeker: ServerPlayer?): Int {
-        val result = GameManager.newRound(ctx.source.server, seeker)
+    private fun seekerOf(ctx: CommandContext<CommandSourceStack>) = EntityArgument.getPlayer(ctx, "seeker")
+    private fun intOf(ctx: CommandContext<CommandSourceStack>, name: String) = IntegerArgumentType.getInteger(ctx, name)
+
+    private fun newRound(ctx: CommandContext<CommandSourceStack>, seeker: ServerPlayer?, hideTime: Int, seekTime: Int): Int {
+        val result = GameManager.newRound(ctx.source.server, seeker, hideTime, seekTime)
         ctx.source.sendSuccess({ result }, true)
         return 1
     }
