@@ -239,7 +239,7 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
         val level = mc.level
         val brightness = if (player != null && level != null) {
             val lightLevel = level.getMaxLocalRawBrightness(player.blockPosition())
-            Lightmap.getBrightness(level.dimensionType(), lightLevel).coerceIn(0.08, 1.0)
+            Lightmap.getBrightness(level.dimensionType(), lightLevel).coerceIn(0.08f, 1.0f)
         } else {
             1.0f
         }
