@@ -74,12 +74,22 @@ done
 echo "Server ready."
 
 # --- launch clients ---
+# Each client uses its own project-cache-dir (to dodge Gradle's lock) but they
+# share the build/ output dir, so concurrent COMPILES would corrupt each other.
+# Launch one at a time and wait until each is past compilation (its window is
+# starting: "Setting user:") before launching the next — builds are serialized,
+# but the clients then run concurrently.
 for i in "${!PLAYERS[@]}"; do
   n="${PLAYERS[$i]}"; pc="build/pc$((i + 1))"
   echo "Launching $n (cache $pc, log $LOGDIR/$n.log)..."
   ./gradlew --no-daemon --project-cache-dir "$pc" runClient \
     --args="--username $n --quickPlayMultiplayer $SERVER_ADDR" > "$LOGDIR/$n.log" 2>&1 &
-  sleep 3
+  until grep -q "Setting user:" "$LOGDIR/$n.log" 2>/dev/null; do
+    if grep -qE "BUILD FAILED" "$LOGDIR/$n.log" 2>/dev/null; then
+      echo "  $n failed to build — see $LOGDIR/$n.log"; break
+    fi
+    sleep 2
+  done
 done
 
 echo
