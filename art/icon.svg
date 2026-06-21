@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- PaintAndSeek icon: a Minecraft (Steve) player formed from paint splotches.
+       Proportions follow the vanilla box model: head 8u square, torso 8x12u,
+       arms 4x12u at the sides, two adjacent 4x12u legs (figure 16u wide x 32u tall). -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a4150"/>
+      <stop offset="1" stop-color="#262b36"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="128" height="128" rx="24" fill="url(#bg)"/>
+
+  <!-- head (teal) -->
+  <g fill="#2bb7c4">
+    <rect x="51" y="12" width="26" height="26" rx="4"/>
+    <circle cx="48" cy="16" r="3.5"/>
+    <circle cx="80" cy="33" r="3"/>
+    <circle cx="64" cy="7" r="3"/>
+  </g>
+  <!-- left arm (yellow) -->
+  <g fill="#f4c531">
+    <rect x="38" y="40" width="12" height="37" rx="4"/>
+    <circle cx="36" cy="62" r="3.5"/>
+    <circle cx="44" cy="81" r="3"/>
+  </g>
+  <!-- right arm (green) -->
+  <g fill="#5fce5a">
+    <rect x="78" y="40" width="12" height="37" rx="4"/>
+    <circle cx="92" cy="52" r="3.5"/>
+    <circle cx="84" cy="81" r="3"/>
+  </g>
+  <!-- torso (red) -->
+  <g fill="#ef5350">
+    <rect x="51" y="40" width="26" height="37" rx="4"/>
+    <circle cx="49" cy="68" r="3"/>
+    <circle cx="79" cy="48" r="3"/>
+  </g>
+  <!-- left leg (magenta) -->
+  <g fill="#e85aa6">
+    <rect x="51" y="79" width="12" height="37" rx="4"/>
+    <circle cx="49" cy="100" r="3.5"/>
+    <circle cx="57" cy="119" r="3"/>
+  </g>
+  <!-- right leg (blue) -->
+  <g fill="#4f8cff">
+    <rect x="65" y="79" width="12" height="37" rx="4"/>
+    <circle cx="79" cy="94" r="3.5"/>
+    <circle cx="71" cy="119" r="3"/>
+  </g>
+</svg>
