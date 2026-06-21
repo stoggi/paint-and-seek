@@ -230,10 +230,20 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
         val target = mc.gameRenderer.mainRenderTarget()
         val sw = width.toDouble()
         val sh = height.toDouble()
+        // The framebuffer pixel is already darkened by world lighting; recover an
+        // approximate albedo by dividing out the local light level, so the painted
+        // skin (which gets re-lit) matches what was sampled instead of going double-dark.
+        val player = mc.player
+        val light = if (player != null) mc.level?.getMaxLocalRawBrightness(player.blockPosition()) ?: 15 else 15
+        val brightness = (light / 15.0).coerceIn(0.25, 1.0)
         Screenshot.takeScreenshot(target) { image ->
             val fx = (mouseX / sw * image.width).toInt().coerceIn(0, image.width - 1)
             val fy = (mouseY / sh * image.height).toInt().coerceIn(0, image.height - 1)
-            PaintState.setFromArgb(image.getPixel(fx, fy) or (0xFF shl 24))
+            val argb = image.getPixel(fx, fy)
+            val r = (((argb ushr 16) and 0xFF) / brightness).toInt().coerceAtMost(255)
+            val g = (((argb ushr 8) and 0xFF) / brightness).toInt().coerceAtMost(255)
+            val b = ((argb and 0xFF) / brightness).toInt().coerceAtMost(255)
+            PaintState.setFromArgb((0xFF shl 24) or (r shl 16) or (g shl 8) or b)
             image.close()
         }
     }
