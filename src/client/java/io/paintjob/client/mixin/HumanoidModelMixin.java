@@ -22,6 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(HumanoidModel.class)
 public class HumanoidModelMixin {
 
+	@Shadow @Final public ModelPart head;
 	@Shadow @Final public ModelPart rightArm;
 	@Shadow @Final public ModelPart leftArm;
 	@Shadow @Final public ModelPart rightLeg;
@@ -33,13 +34,22 @@ public class HumanoidModelMixin {
 			return;
 		}
 		PaintPose pose = posed.paintjob$getPose();
-		if (pose == null || pose == PaintPose.DEFAULT) {
+		if (pose == null) {
+			pose = PaintPose.DEFAULT;
+		}
+		boolean frozen = posed.paintjob$isFrozen();
+		// Normal animation unless the player is posed or (locally) painting.
+		if (!frozen && pose == PaintPose.DEFAULT) {
 			return;
 		}
 		paintjob$pose(this.rightArm, pose.getRightArm());
 		paintjob$pose(this.leftArm, pose.getLeftArm());
 		paintjob$pose(this.rightLeg, pose.getRightLeg());
 		paintjob$pose(this.leftLeg, pose.getLeftLeg());
+		// Freeze the head to neutral so it matches the (static) pick geometry.
+		this.head.xRot = 0f;
+		this.head.yRot = 0f;
+		this.head.zRot = 0f;
 	}
 
 	@Unique

@@ -10,4 +10,9 @@ public interface PosedRenderState {
 	void paintjob$setPose(PaintPose pose);
 
 	PaintPose paintjob$getPose();
+
+	/** True for the local player while painting: fully freeze the model to match the pick geometry. */
+	void paintjob$setFrozen(boolean frozen);
+
+	boolean paintjob$isFrozen();
 }

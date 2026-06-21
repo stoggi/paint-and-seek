@@ -13,6 +13,9 @@ public class AvatarRenderStateMixin implements PosedRenderState {
 	@Unique
 	private PaintPose paintjob$pose = PaintPose.DEFAULT;
 
+	@Unique
+	private boolean paintjob$frozen = false;
+
 	@Override
 	public void paintjob$setPose(PaintPose pose) {
 		this.paintjob$pose = pose;
@@ -21,5 +24,15 @@ public class AvatarRenderStateMixin implements PosedRenderState {
 	@Override
 	public PaintPose paintjob$getPose() {
 		return this.paintjob$pose;
+	}
+
+	@Override
+	public void paintjob$setFrozen(boolean frozen) {
+		this.paintjob$frozen = frozen;
+	}
+
+	@Override
+	public boolean paintjob$isFrozen() {
+		return this.paintjob$frozen;
 	}
 }

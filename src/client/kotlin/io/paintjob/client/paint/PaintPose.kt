@@ -31,12 +31,12 @@ enum class PaintPose(
     LEGS_OUT(
         "Legs Out",
         rightArm = LimbRot(z = deg(18f)), leftArm = LimbRot(z = deg(-18f)),
-        rightLeg = LimbRot(z = deg(-22f)), leftLeg = LimbRot(z = deg(22f)),
+        rightLeg = LimbRot(z = deg(22f)), leftLeg = LimbRot(z = deg(-22f)),
     ),
     STAR(
         "Star",
         rightArm = LimbRot(z = deg(125f)), leftArm = LimbRot(z = deg(-125f)),
-        rightLeg = LimbRot(z = deg(-20f)), leftLeg = LimbRot(z = deg(20f)),
+        rightLeg = LimbRot(z = deg(20f)), leftLeg = LimbRot(z = deg(-20f)),
     ),
     ;
 

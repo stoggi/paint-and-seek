@@ -1,7 +1,10 @@
 package io.paintjob.client.mixin;
 
 import io.paintjob.client.paint.ClientPoseStore;
+import io.paintjob.client.paint.PaintMode;
+import io.paintjob.client.paint.PaintState;
 import io.paintjob.client.paint.PosedRenderState;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.world.entity.Avatar;
@@ -16,6 +19,12 @@ public class AvatarRendererMixin {
 
 	@Inject(method = "extractRenderState", at = @At("TAIL"))
 	private void paintjob$capturePose(Avatar entity, AvatarRenderState state, float partialTicks, CallbackInfo ci) {
-		((PosedRenderState) state).paintjob$setPose(ClientPoseStore.INSTANCE.get(entity.getUUID()));
+		// The local player painting is fully frozen to match the pick geometry;
+		// everyone else just shows their networked pose.
+		boolean local = entity == Minecraft.getInstance().player && PaintMode.INSTANCE.getActive();
+		((PosedRenderState) state).paintjob$setFrozen(local);
+		((PosedRenderState) state).paintjob$setPose(
+			local ? PaintState.INSTANCE.getPose() : ClientPoseStore.INSTANCE.get(entity.getUUID())
+		);
 	}
 }
