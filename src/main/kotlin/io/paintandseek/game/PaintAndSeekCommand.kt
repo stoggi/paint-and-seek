@@ -50,14 +50,24 @@ object PaintAndSeekCommand {
     private fun intOf(ctx: CommandContext<CommandSourceStack>, name: String) = IntegerArgumentType.getInteger(ctx, name)
 
     private fun newRound(ctx: CommandContext<CommandSourceStack>, seeker: ServerPlayer?, hideTime: Int, seekTime: Int, arrows: Int): Int {
-        val result = GameManager.newRound(ctx.source.server, seeker, hideTime, seekTime, arrows)
-        ctx.source.sendSuccess({ result }, true)
+        // Run outside this command's execution context so the round's hook commands
+        // (tag/function) execute top-level and synchronously, in the right order.
+        val source = ctx.source
+        val server = source.server
+        server.execute {
+            val result = GameManager.newRound(server, seeker, hideTime, seekTime, arrows)
+            source.sendSuccess({ result }, true)
+        }
         return 1
     }
 
     private fun endRound(ctx: CommandContext<CommandSourceStack>): Int {
-        val result = GameManager.endRound(ctx.source.server)
-        ctx.source.sendSuccess({ result }, true)
+        val source = ctx.source
+        val server = source.server
+        server.execute {
+            val result = GameManager.endRound(server)
+            source.sendSuccess({ result }, true)
+        }
         return 1
     }
 }
