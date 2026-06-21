@@ -6,9 +6,11 @@ import io.paintjob.net.SubmitPose
 import io.paintjob.net.SubmitSkinPatch
 import io.paintjob.skin.SkinImage
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
+import com.mojang.blaze3d.systems.RenderSystem
+import com.mojang.blaze3d.textures.GpuTexture
 import net.minecraft.client.Screenshot
 import net.minecraft.client.gui.GuiGraphicsExtractor
-import net.minecraft.client.renderer.Lightmap
+import net.minecraft.world.level.LightLayer
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.client.renderer.RenderPipelines
@@ -231,28 +233,48 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
         val target = mc.gameRenderer.mainRenderTarget()
         val sw = width.toDouble()
         val sh = height.toDouble()
-        // The framebuffer pixel is the surface already darkened by world lighting.
-        // Recover an approximate albedo by dividing out the local brightness (using
-        // the game's own brightness curve), so the normally-lit painted skin matches
-        // the sampled surface and still reacts to light.
-        val player = mc.player
-        val level = mc.level
-        val brightness = if (player != null && level != null) {
-            val lightLevel = level.getMaxLocalRawBrightness(player.blockPosition())
-            Lightmap.getBrightness(level.dimensionType(), lightLevel).coerceIn(0.08f, 1.0f)
-        } else {
-            1.0f
+        // The framebuffer pixel is the surface AFTER lighting. Divide it by the
+        // exact lightmap colour at the player's light level (read from the GPU
+        // lightmap, which already encodes time-of-day, gamma and tint) to recover
+        // the albedo, so the normally-lit painted skin lands on the sampled colour
+        // — and still reacts to light afterwards.
+        val player = mc.player ?: return
+        val level = mc.level ?: return
+        val pos = player.blockPosition()
+        val bx = level.getBrightness(LightLayer.BLOCK, pos).coerceIn(0, 15)
+        val by = level.getBrightness(LightLayer.SKY, pos).coerceIn(0, 15)
+        val lightmapTex = mc.gameRenderer.lightmap().texture()
+
+        readTexelRgb(lightmapTex, 16, bx, by) { lr, lg, lb ->
+            Screenshot.takeScreenshot(target) { image ->
+                val fx = (mouseX / sw * image.width).toInt().coerceIn(0, image.width - 1)
+                val fy = (mouseY / sh * image.height).toInt().coerceIn(0, image.height - 1)
+                val argb = image.getPixel(fx, fy)
+                val r = ((argb ushr 16 and 0xFF) * 255 / maxOf(1, lr)).coerceIn(0, 255)
+                val g = ((argb ushr 8 and 0xFF) * 255 / maxOf(1, lg)).coerceIn(0, 255)
+                val b = ((argb and 0xFF) * 255 / maxOf(1, lb)).coerceIn(0, 255)
+                PaintState.setFromArgb((0xFF shl 24) or (r shl 16) or (g shl 8) or b)
+                image.close()
+            }
         }
-        Screenshot.takeScreenshot(target) { image ->
-            val fx = (mouseX / sw * image.width).toInt().coerceIn(0, image.width - 1)
-            val fy = (mouseY / sh * image.height).toInt().coerceIn(0, image.height - 1)
-            val argb = image.getPixel(fx, fy)
-            val r = (((argb ushr 16) and 0xFF) / brightness).toInt().coerceIn(0, 255)
-            val g = (((argb ushr 8) and 0xFF) / brightness).toInt().coerceIn(0, 255)
-            val b = ((argb and 0xFF) / brightness).toInt().coerceIn(0, 255)
-            PaintState.setFromArgb((0xFF shl 24) or (r shl 16) or (g shl 8) or b)
-            image.close()
-        }
+    }
+
+    /** Read one texel (px,py) of a small GPU texture back as RGB (0-255), async. */
+    private fun readTexelRgb(texture: GpuTexture, width: Int, px: Int, py: Int, callback: (Int, Int, Int) -> Unit) {
+        val blockSize = texture.format.blockSize()
+        val height = texture.getHeight(0)
+        val device = RenderSystem.getDevice()
+        val buffer = device.createBuffer({ "paintjob lightmap read" }, 9, width.toLong() * height * blockSize)
+        device.createCommandEncoder().copyTextureToBuffer(texture, buffer, 0L, {
+            try {
+                buffer.map(true, false).use { read ->
+                    val raw = read.data().getInt((px + py * width) * blockSize) // GPU ABGR
+                    callback(raw and 0xFF, (raw ushr 8) and 0xFF, (raw ushr 16) and 0xFF)
+                }
+            } finally {
+                buffer.close()
+            }
+        }, 0)
     }
 
     override fun extractRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {
