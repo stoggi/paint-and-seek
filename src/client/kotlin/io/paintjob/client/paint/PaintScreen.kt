@@ -142,14 +142,13 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
         val w = x1 - x0 + 1
         val h = y1 - y0 + 1
         val color = PaintState.effectivePaintColor()
-        // When erasing the overlay, restrict to overlay-owned texels so a stroke
-        // can never clear texels that belong to the base skin.
-        val erasing = PaintState.transparentMode && PaintState.layer == SkinLayer.OVERLAY
-        val mask = if (erasing) PlayerModelGeometry.layerMask(PaintState.modelType(mc), SkinLayer.OVERLAY) else null
+        // Confine every stroke to texels owned by the selected layer, so painting
+        // one layer never bleeds into the other (and erasing never clears the base).
+        val mask = PlayerModelGeometry.layerMask(PaintState.modelType(mc), PaintState.layer)
         val pixels = IntArray(w * h) { idx ->
             val gx = x0 + idx % w
             val gy = y0 + idx / w
-            if (mask == null || mask[gy * SkinImage.WIDTH + gx]) color
+            if (mask[gy * SkinImage.WIDTH + gx]) color
             else PaintedSkinTextures.pixel(player.uuid, gx, gy)
         }
         val rect = SkinRect(x0, y0, w, h, pixels)
