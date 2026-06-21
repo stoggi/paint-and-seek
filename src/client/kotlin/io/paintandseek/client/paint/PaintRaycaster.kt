@@ -22,7 +22,14 @@ import org.joml.Vector3f
  */
 object PaintRaycaster {
     /** Cursor -> (origin, dir) ray in the local player's model-pixel space, or null. */
-    fun modelRay(mc: Minecraft, mouseX: Double, mouseY: Double, screenW: Int, screenH: Int): Pair<Vector3f, Vector3f>? {
+    fun modelRay(
+        mc: Minecraft,
+        mouseX: Double,
+        mouseY: Double,
+        screenW: Int,
+        screenH: Int,
+        pose: PaintPose,
+    ): Pair<Vector3f, Vector3f>? {
         val player = mc.player ?: return null
         val camera = mc.gameRenderer.mainCamera()
         if (!camera.isInitialized) return null
@@ -36,10 +43,15 @@ object PaintRaycaster {
         val planePoint = lerp(top, bottom, v) // offset from camera position
         val camPos = camera.position()
 
-        // 2. Build world->model (entity-relative) and apply.
+        // 2. Build world->model (entity-relative) and apply. The ground-pose body
+        // transform is inserted in the exact spot the renderer applies it (right
+        // after the body-yaw, see LivingEntityRendererMixin#setupRotations), so the
+        // inverse maps the cursor onto the same tipped model the player sees.
         val bodyRot = Math.toRadians((180.0f - player.yBodyRot).toDouble()).toFloat()
         val world = Matrix4f()
             .rotateY(bodyRot)
+            .translate(0.0f, pose.bodyOffsetY, pose.bodyOffsetZ)
+            .rotateX(pose.bodyPitch)
             .scale(-1.0f, -1.0f, 1.0f)
             .scale(0.9375f)
             .translate(0.0f, -1.501f, 0.0f)
@@ -70,7 +82,7 @@ object PaintRaycaster {
         pose: PaintPose,
         filter: PartFilter,
     ): TexelHit? {
-        val (origin, dir) = modelRay(mc, mouseX, mouseY, screenW, screenH) ?: return null
+        val (origin, dir) = modelRay(mc, mouseX, mouseY, screenW, screenH, pose) ?: return null
         return PlayerModelGeometry.raycast(origin, dir, type, layer, pose, filter)
     }
 

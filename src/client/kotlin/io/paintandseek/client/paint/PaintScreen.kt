@@ -62,15 +62,17 @@ class PaintScreen : Screen(Component.literal("PaintAndSeek")) {
     private val brushSliderW get() = controlW
     private val brushSliderH = 10
 
-    // Pose buttons — a 2x3 grid above the brush controls.
+    // Pose buttons — a 2-column grid above the brush controls (rows grow with the
+    // number of poses).
     private val poseColW get() = (controlW - 4) / 2
     private val poseRowStep = 18
     private val poseBtnH = 16
-    private val poseGridTop get() = brushSliderY - 16 - 3 * poseRowStep
+    private val poseRows = (PaintPose.entries.size + 1) / 2
+    private val poseGridTop get() = brushSliderY - 16 - poseRows * poseRowStep
 
     private fun poseX(i: Int) = controlX + (i % 2) * (poseColW + 4)
     private fun poseY(i: Int) = poseGridTop + (i / 2) * poseRowStep
-    private val poseGridH get() = 3 * poseRowStep
+    private val poseGridH get() = poseRows * poseRowStep
 
     override fun isPauseScreen(): Boolean = false
     override fun isInGameUi(): Boolean = true
@@ -190,7 +192,7 @@ class PaintScreen : Screen(Component.literal("PaintAndSeek")) {
             val sy = if (samplesPerAxis == 1) 0.0 else -half + iy.toDouble() / (samplesPerAxis - 1) * 2 * half
             for (ix in 0 until samplesPerAxis) {
                 val sx = if (samplesPerAxis == 1) 0.0 else -half + ix.toDouble() / (samplesPerAxis - 1) * 2 * half
-                val (origin, dir) = PaintRaycaster.modelRay(mc, mouseX + sx, mouseY + sy, width, height) ?: continue
+                val (origin, dir) = PaintRaycaster.modelRay(mc, mouseX + sx, mouseY + sy, width, height, pose) ?: continue
                 PlayerModelGeometry.raycastAllTexels(origin, dir, type, layer, pose, filter, mask, hits)
             }
         }

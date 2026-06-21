@@ -80,9 +80,22 @@ set_option pauseOnLostFocus false
 set_option soundCategory_music 0.0
 echo "Set client options (pauseOnLostFocus=false, music muted)."
 
+# --- build ONCE up front ---
+# Every server/client below reuses these outputs and is told NOT to recompile
+# (NOCOMPILE). Otherwise each client's separate --project-cache-dir has no
+# up-to-date history and recompiles into the SHARED build/ dir while siblings are
+# already running, intermittently blanking a .class mid-write (e.g. a lazy load of
+# io.paintandseek.skin.SkinImage -> NoClassDefFoundError). Build once, then freeze.
+NOCOMPILE="-x compileJava -x compileKotlin -x compileClientJava -x compileClientKotlin -x processResources -x processClientResources"
+echo "Building once up front (log: $LOGDIR/build.log)..."
+if ! ./gradlew --no-daemon build > "$LOGDIR/build.log" 2>&1; then
+  echo "Build failed — see $LOGDIR/build.log"; exit 1
+fi
+echo "Build done."
+
 # --- start server, stdin held open so it doesn't stop on EOF ---
 echo "Starting server (log: $LOGDIR/server.log)..."
-tail -f /dev/null | ./gradlew --no-daemon runServer > "$LOGDIR/server.log" 2>&1 &
+tail -f /dev/null | ./gradlew --no-daemon $NOCOMPILE runServer > "$LOGDIR/server.log" 2>&1 &
 until grep -q "Done (" "$LOGDIR/server.log" 2>/dev/null; do
   if grep -qE "BUILD FAILED|Caused by:" "$LOGDIR/server.log" 2>/dev/null; then
     echo "Server failed to start — see $LOGDIR/server.log"; stop; exit 1
@@ -92,15 +105,14 @@ done
 echo "Server ready."
 
 # --- launch clients ---
-# Each client uses its own project-cache-dir (to dodge Gradle's lock) but they
-# share the build/ output dir, so concurrent COMPILES would corrupt each other.
-# Launch one at a time and wait until each is past compilation (its window is
-# starting: "Setting user:") before launching the next — builds are serialized,
-# but the clients then run concurrently.
+# Each client uses its own project-cache-dir (to dodge Gradle's lock). With
+# NOCOMPILE they reuse the up-front build instead of recompiling, so the shared
+# build/ dir is never rewritten while a client is running. Still launched one at a
+# time (wait for "Setting user:") to stagger JVM startup.
 for i in "${!PLAYERS[@]}"; do
   n="${PLAYERS[$i]}"; pc="build/pc$((i + 1))"
   echo "Launching $n (cache $pc, log $LOGDIR/$n.log)..."
-  ./gradlew --no-daemon --project-cache-dir "$pc" runClient \
+  ./gradlew --no-daemon --project-cache-dir "$pc" $NOCOMPILE runClient \
     --args="--username $n --quickPlayMultiplayer $SERVER_ADDR" > "$LOGDIR/$n.log" 2>&1 &
   until grep -q "Setting user:" "$LOGDIR/$n.log" 2>/dev/null; do
     if grep -qE "BUILD FAILED" "$LOGDIR/$n.log" 2>/dev/null; then

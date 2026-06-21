@@ -9,6 +9,9 @@ data class LimbRot(val x: Float = 0f, val y: Float = 0f, val z: Float = 0f) {
 
 private fun deg(d: Float): Float = Math.toRadians(d.toDouble()).toFloat()
 
+/** Upward nudge (blocks) for tipped ground poses so the body rests on the floor. */
+private const val GROUND_LIFT = 0.1f
+
 /**
  * A selectable full-body pose. Poses rotate the limbs so painters can reach
  * otherwise-occluded surfaces (under the arms, inner legs, …) and to strike a
@@ -23,6 +26,14 @@ enum class PaintPose(
     val leftArm: LimbRot = LimbRot.NONE,
     val rightLeg: LimbRot = LimbRot.NONE,
     val leftLeg: LimbRot = LimbRot.NONE,
+    /**
+     * Whole-body transform for ground poses, applied in-world only (not to the pick
+     * geometry or the upright paint preview). [bodyPitch] tips the whole model about
+     * its feet (radians); [bodyOffsetY]/[bodyOffsetZ] nudge it in blocks afterwards.
+     */
+    val bodyPitch: Float = 0f,
+    val bodyOffsetY: Float = 0f,
+    val bodyOffsetZ: Float = 0f,
 ) {
     DEFAULT("Default"),
     T_POSE("T-Pose", rightArm = LimbRot(z = deg(90f)), leftArm = LimbRot(z = deg(-90f))),
@@ -38,7 +49,39 @@ enum class PaintPose(
         rightArm = LimbRot(z = deg(125f)), leftArm = LimbRot(z = deg(-125f)),
         rightLeg = LimbRot(z = deg(20f)), leftLeg = LimbRot(z = deg(-20f)),
     ),
+    // ---- ground poses: limbs arranged + whole body tipped flat (or lowered, for SIT) ----
+    // GROUND_LIFT lifts tipped bodies so their thickness clears the floor instead
+    // of half-embedding in it. One shared knob — tune if they float or still sink.
+    STARFISH(
+        "Starfish",
+        rightArm = LimbRot(z = deg(125f)), leftArm = LimbRot(z = deg(-125f)),
+        rightLeg = LimbRot(z = deg(20f)), leftLeg = LimbRot(z = deg(-20f)),
+        bodyPitch = deg(90f), bodyOffsetY = GROUND_LIFT,
+    ),
+    LIE_FLAT(
+        "Lie Flat",
+        // Arms together, straight along the body (default limb angles), tipped flat.
+        bodyPitch = deg(90f), bodyOffsetY = GROUND_LIFT,
+    ),
+    BALL(
+        "Ball",
+        // Limbs curled toward the chest, then tipped onto the ground.
+        rightArm = LimbRot(x = deg(-155f)), leftArm = LimbRot(x = deg(-155f)),
+        rightLeg = LimbRot(x = deg(-150f)), leftLeg = LimbRot(x = deg(-150f)),
+        bodyPitch = deg(90f), bodyOffsetY = GROUND_LIFT,
+    ),
+    SIT(
+        "Sit",
+        // Legs out in front, hands resting; body stays upright but lowered to the ground.
+        rightArm = LimbRot(x = deg(-15f)), leftArm = LimbRot(x = deg(-15f)),
+        rightLeg = LimbRot(x = deg(-90f)), leftLeg = LimbRot(x = deg(-90f)),
+        bodyOffsetY = -0.42f,
+    ),
     ;
+
+    /** True if this pose applies an in-world whole-body transform (ground poses). */
+    val hasBodyTransform: Boolean
+        get() = bodyPitch != 0f || bodyOffsetY != 0f || bodyOffsetZ != 0f
 
     companion object {
         fun byId(id: Int): PaintPose = entries.getOrElse(id) { DEFAULT }
