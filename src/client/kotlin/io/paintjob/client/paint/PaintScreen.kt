@@ -130,31 +130,61 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
     private fun paintAt(mouseX: Double, mouseY: Double) {
         val mc = minecraft
         val player = mc.player ?: return
-        val hit = PaintRaycaster.pick(mc, mouseX, mouseY, width, height, PaintState.modelType(mc), PaintState.layer)
-        PaintState.lastHit = hit
-        if (hit == null) return
+        val type = PaintState.modelType(mc)
+        val layer = PaintState.layer
+        PaintState.lastHit = PaintRaycaster.pick(mc, mouseX, mouseY, width, height, type, layer)
 
+        // Gather every texel the model actually shows under the brush footprint by
+        // raycasting a grid of sample points across it (half-texel resolution).
+        // This paints exactly what's under the brush even across angled faces and
+        // edges, where a flat texel-space square would miss/overshoot.
         val r = PaintState.brushRadius
-        val x0 = (hit.texelX - r).coerceIn(0, SkinImage.WIDTH - 1)
-        val y0 = (hit.texelY - r).coerceIn(0, SkinImage.HEIGHT - 1)
-        val x1 = (hit.texelX + r).coerceIn(0, SkinImage.WIDTH - 1)
-        val y1 = (hit.texelY + r).coerceIn(0, SkinImage.HEIGHT - 1)
-        val w = x1 - x0 + 1
-        val h = y1 - y0 + 1
+        val texelPx = texelScreenPx(mc)
+        val half = if (r == 0) 0.0 else (r + 0.5) * texelPx
+        val samplesPerAxis = if (r == 0) 1 else (r * 2 + 1) * 2
+        val mask = PlayerModelGeometry.layerMask(type, layer)
+
+        val hits = HashSet<Int>()
+        var minX = Int.MAX_VALUE
+        var minY = Int.MAX_VALUE
+        var maxX = Int.MIN_VALUE
+        var maxY = Int.MIN_VALUE
+        for (iy in 0 until samplesPerAxis) {
+            val sy = if (samplesPerAxis == 1) 0.0 else -half + iy.toDouble() / (samplesPerAxis - 1) * 2 * half
+            for (ix in 0 until samplesPerAxis) {
+                val sx = if (samplesPerAxis == 1) 0.0 else -half + ix.toDouble() / (samplesPerAxis - 1) * 2 * half
+                val hit = PaintRaycaster.pick(mc, mouseX + sx, mouseY + sy, width, height, type, layer) ?: continue
+                val idx = hit.texelY * SkinImage.WIDTH + hit.texelX
+                if (!mask[idx]) continue
+                hits.add(idx)
+                if (hit.texelX < minX) minX = hit.texelX
+                if (hit.texelX > maxX) maxX = hit.texelX
+                if (hit.texelY < minY) minY = hit.texelY
+                if (hit.texelY > maxY) maxY = hit.texelY
+            }
+        }
+        if (hits.isEmpty()) return
+
         val color = PaintState.effectivePaintColor()
-        // Confine every stroke to texels owned by the selected layer, so painting
-        // one layer never bleeds into the other (and erasing never clears the base).
-        val mask = PlayerModelGeometry.layerMask(PaintState.modelType(mc), PaintState.layer)
+        val w = maxX - minX + 1
+        val h = maxY - minY + 1
         val pixels = IntArray(w * h) { idx ->
-            val gx = x0 + idx % w
-            val gy = y0 + idx / w
-            if (mask[gy * SkinImage.WIDTH + gx]) color
+            val gx = minX + idx % w
+            val gy = minY + idx / w
+            if (hits.contains(gy * SkinImage.WIDTH + gx)) color
             else PaintedSkinTextures.pixel(player.uuid, gx, gy)
         }
-        val rect = SkinRect(x0, y0, w, h, pixels)
+        val rect = SkinRect(minX, minY, w, h, pixels)
 
         PaintedSkinTextures.applyPatch(player.uuid, rect)
         ClientPlayNetworking.send(SubmitSkinPatch(rect))
+    }
+
+    /** Approx screen size (in GUI px) of one skin texel on the model at the current zoom. */
+    private fun texelScreenPx(mc: net.minecraft.client.Minecraft): Double {
+        val fovRad = Math.toRadians(mc.gameRenderer.mainCamera().fov.toDouble())
+        val pxPerBlock = height / (2.0 * PaintCamera.distance * tan(fovRad / 2.0))
+        return pxPerBlock / 16.0 // a skin texel is 1/16 block
     }
 
     private fun eyedropAt(mouseX: Double, mouseY: Double) {
@@ -253,10 +283,7 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
 
     /** A square outline at the cursor showing the brush footprint on the model. */
     private fun renderBrushHighlight(graphics: GuiGraphicsExtractor, mc: net.minecraft.client.Minecraft, mouseX: Int, mouseY: Int) {
-        val fovRad = Math.toRadians(mc.gameRenderer.mainCamera().fov.toDouble())
-        val pxPerBlock = height / (2.0 * PaintCamera.distance * tan(fovRad / 2.0))
-        val texelPx = pxPerBlock / 16.0 // a skin texel is 1/16 block
-        val half = ((PaintState.brushRadius + 0.5) * texelPx).toInt().coerceIn(2, 400)
+        val half = ((PaintState.brushRadius + 0.5) * texelScreenPx(mc)).toInt().coerceIn(2, 400)
         val preview = if (PaintState.transparentMode) 0xFFFFFFFF.toInt() else (PaintState.colorArgb or (0xFF shl 24))
         squareOutline(graphics, mouseX, mouseY, half, 0xFF000000.toInt())
         squareOutline(graphics, mouseX, mouseY, half - 1, preview)
