@@ -59,16 +59,17 @@ object GameManager {
 
     private const val FOV_HALF_ANGLE_DEG = 35.0 // ~70° cone
     private const val MAX_RANGE = 64.0
-    private const val TICKS_PER_POINT = 20 // 1 point per second in view
+    private const val SCORE_FLUSH_TICKS = 600 // only reveal scores every 30s (hide exact sightings)
+    private const val NEAR_POINTS = 5.0 // points/sec when right next to the seeker
+    private const val FAR_POINTS = 1.0 // points/sec at max range
 
     private val fovCosThreshold = cos(Math.toRadians(FOV_HALF_ANGLE_DEG))
 
     private enum class Phase { NONE, HIDE, SEEK }
 
     private class HiderState(val name: String) {
-        var score = 0
+        var score = 0.0 // accumulated continuously; only flushed to the scoreboard every 30s
         var locked = false
-        var viewTicks = 0
     }
 
     private var phase = Phase.NONE
@@ -78,6 +79,7 @@ object GameManager {
     private var hideTicksLeft = 0
     private var seekTicksLeft = 0
     private var displayCounter = 0
+    private var scoreFlushCounter = 0
 
     val isActive: Boolean get() = phase != Phase.NONE
 
@@ -123,11 +125,12 @@ object GameManager {
         hideTicksLeft = hideSeconds * 20
         seekTicksLeft = seekSeconds * 20
         displayCounter = 0
+        scoreFlushCounter = 0
         updateTimerDisplay(server)
 
         // Customisable hooks (run after tags are set so selectors work).
         runFunction(server, "on_start")
-        runFunction(server, "execute as @a[tag=$TAG_SEEKER] at @s run function $NS:setup_seeker {arrows:$arrows}")
+        runFunction(server, "execute as @a[tag=$TAG_SEEKER] at @s run function $NS:setup_seeker {arrows:$arrows,hide:$hideSeconds}")
         runFunction(server, "execute as @a[tag=$TAG_HIDER] at @s run function $NS:setup_hider")
 
         return msg("Round started. Seeker: $seekerName, hiders: ${hiders.size}", ChatFormatting.GREEN)
@@ -136,6 +139,7 @@ object GameManager {
     fun endRound(server: MinecraftServer): Component {
         if (phase == Phase.NONE) return msg("No round is active.", ChatFormatting.RED)
 
+        flushScores(server) // reveal final scores
         val hasHiders = hiders.isNotEmpty()
         val allFound = hasHiders && hiders.values.all { it.locked }
         when {
@@ -170,6 +174,7 @@ object GameManager {
             }
             Phase.SEEK -> {
                 seekerId?.let { server.playerList.getPlayer(it) }?.let { doScoring(server, it) }
+                if (++scoreFlushCounter % SCORE_FLUSH_TICKS == 0) flushScores(server)
                 if (hiders.isNotEmpty() && hiders.values.all { it.locked }) {
                     endRound(server)
                     return
@@ -192,7 +197,6 @@ object GameManager {
     private fun doScoring(server: MinecraftServer, seeker: ServerPlayer) {
         val eye = seeker.eyePosition
         val look = seeker.getViewVector(1.0f)
-        val objective = server.scoreboard.getObjective(OBJECTIVE_NAME) ?: return
 
         for ((uuid, state) in hiders) {
             if (state.locked) continue
@@ -205,11 +209,18 @@ object GameManager {
             if (toHider.scale(1.0 / dist).dot(look) < fovCosThreshold) continue
             if (isObstructed(seeker, eye, hider.eyePosition)) continue
 
-            state.viewTicks++
-            if (state.viewTicks % TICKS_PER_POINT == 0) {
-                state.score++
-                server.scoreboard.getOrCreatePlayerScore(hider, objective).set(state.score)
-            }
+            // Closer = more points. Accumulate continuously; only revealed every 30s.
+            val closeness = (1.0 - dist / MAX_RANGE).coerceIn(0.0, 1.0)
+            state.score += (FAR_POINTS + (NEAR_POINTS - FAR_POINTS) * closeness) / 20.0
+        }
+    }
+
+    /** Push accumulated scores to the scoreboard (batched so exact sightings stay hidden). */
+    private fun flushScores(server: MinecraftServer) {
+        val objective = server.scoreboard.getObjective(OBJECTIVE_NAME) ?: return
+        for ((uuid, state) in hiders) {
+            val hider = server.playerList.getPlayer(uuid) ?: continue
+            server.scoreboard.getOrCreatePlayerScore(hider, objective).set(state.score.toInt())
         }
     }
 
