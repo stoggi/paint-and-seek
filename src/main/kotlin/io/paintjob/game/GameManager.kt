@@ -2,6 +2,8 @@ package io.paintjob.game
 
 import io.paintjob.item.PaintjobItems
 import io.paintjob.net.ClearSkin
+import io.paintjob.net.PoseSync
+import io.paintjob.skin.ServerPoseStore
 import io.paintjob.skin.ServerSkinStore
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.ChatFormatting
@@ -97,6 +99,8 @@ object GameManager {
             scoreboard.getOrCreatePlayerScore(player, objective).set(0)
             player.inventory.add(ItemStack(PaintjobItems.paintBrush)) // hiders get a brush
         }
+        // The seeker gets a brush too, to paint themselves during the hide phase.
+        seeker.inventory.add(ItemStack(PaintjobItems.paintBrush))
 
         phase = Phase.HIDE
         hideTicksLeft = hideSeconds * 20
@@ -246,9 +250,15 @@ object GameManager {
             addAll(hiders.keys)
         }
         if (participants.isEmpty()) return
-        for (uuid in participants) ServerSkinStore.clear(uuid)
+        for (uuid in participants) {
+            ServerSkinStore.clear(uuid)
+            ServerPoseStore.clear(uuid)
+        }
         for (viewer in server.playerList.players) {
-            for (uuid in participants) ServerPlayNetworking.send(viewer, ClearSkin(uuid))
+            for (uuid in participants) {
+                ServerPlayNetworking.send(viewer, ClearSkin(uuid))
+                ServerPlayNetworking.send(viewer, PoseSync(uuid, 0)) // 0 = DEFAULT pose
+            }
         }
     }
 

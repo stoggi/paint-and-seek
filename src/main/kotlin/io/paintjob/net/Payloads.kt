@@ -129,3 +129,32 @@ data class ClearSkin(val uuid: UUID) : CustomPacketPayload {
         )
     }
 }
+
+/** Client -> Server: "I selected this pose." (poseId = PaintPose ordinal) */
+data class SubmitPose(val poseId: Int) : CustomPacketPayload {
+    override fun type() = TYPE
+
+    companion object {
+        val TYPE = CustomPacketPayload.Type<SubmitPose>(Paintjob.id("submit_pose"))
+        val CODEC: StreamCodec<FriendlyByteBuf, SubmitPose> = CustomPacketPayload.codec(
+            { value, buf -> buf.writeVarInt(value.poseId) },
+            { buf -> SubmitPose(buf.readVarInt()) },
+        )
+    }
+}
+
+/** Server -> Clients: "<uuid> is now in this pose." */
+data class PoseSync(val uuid: UUID, val poseId: Int) : CustomPacketPayload {
+    override fun type() = TYPE
+
+    companion object {
+        val TYPE = CustomPacketPayload.Type<PoseSync>(Paintjob.id("pose_sync"))
+        val CODEC: StreamCodec<FriendlyByteBuf, PoseSync> = CustomPacketPayload.codec(
+            { value, buf ->
+                buf.writeUUID(value.uuid)
+                buf.writeVarInt(value.poseId)
+            },
+            { buf -> PoseSync(buf.readUUID(), buf.readVarInt()) },
+        )
+    }
+}

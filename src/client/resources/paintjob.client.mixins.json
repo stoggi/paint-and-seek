@@ -4,7 +4,10 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"AbstractClientPlayerMixin",
-		"CameraMixin"
+		"AvatarRendererMixin",
+		"AvatarRenderStateMixin",
+		"CameraMixin",
+		"HumanoidModelMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -2,6 +2,7 @@ package io.paintjob.client.paint
 
 import io.paintjob.client.skin.PaintedSkinTextures
 import io.paintjob.net.SkinRect
+import io.paintjob.net.SubmitPose
 import io.paintjob.net.SubmitSkinPatch
 import io.paintjob.skin.SkinImage
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
@@ -51,6 +52,16 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
     private val brushSliderY get() = toggleY - 24
     private val brushSliderW get() = controlW
     private val brushSliderH = 10
+
+    // Pose buttons — a 2x3 grid above the brush controls.
+    private val poseColW get() = (controlW - 4) / 2
+    private val poseRowStep = 18
+    private val poseBtnH = 16
+    private val poseGridTop get() = brushSliderY - 16 - 3 * poseRowStep
+
+    private fun poseX(i: Int) = controlX + (i % 2) * (poseColW + 4)
+    private fun poseY(i: Int) = poseGridTop + (i / 2) * poseRowStep
+    private val poseGridH get() = 3 * poseRowStep
 
     override fun isPauseScreen(): Boolean = false
     override fun isInGameUi(): Boolean = true
@@ -105,6 +116,12 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
                     if (isClick) PaintState.toggleLayer()
                     return true
                 }
+                for (i in PaintPose.entries.indices) {
+                    if (inRect(x, y, poseX(i), poseY(i), poseColW, poseBtnH)) {
+                        if (isClick) selectPose(PaintPose.entries[i])
+                        return true
+                    }
+                }
                 paintAt(x, y)
                 return true
             }
@@ -125,14 +142,24 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
             inRect(x, y, swatchX, swatchY, swatchSize, swatchSize) ||
             inRect(x, y, transX, transY, transSize, transSize) ||
             inRect(x, y, brushSliderX, brushSliderY, brushSliderW, brushSliderH) ||
-            inRect(x, y, toggleX, toggleY, toggleW, toggleH)
+            inRect(x, y, toggleX, toggleY, toggleW, toggleH) ||
+            inRect(x, y, controlX, poseGridTop, controlW, poseGridH)
+
+    /** Select a pose: drive picking, show it locally at once, and sync to others. */
+    private fun selectPose(pose: PaintPose) {
+        PaintState.pose = pose
+        val player = minecraft.player ?: return
+        ClientPoseStore.set(player.uuid, pose)
+        ClientPlayNetworking.send(SubmitPose(pose.ordinal))
+    }
 
     private fun paintAt(mouseX: Double, mouseY: Double) {
         val mc = minecraft
         val player = mc.player ?: return
         val type = PaintState.modelType(mc)
         val layer = PaintState.layer
-        PaintState.lastHit = PaintRaycaster.pick(mc, mouseX, mouseY, width, height, type, layer)
+        val pose = PaintState.pose
+        PaintState.lastHit = PaintRaycaster.pick(mc, mouseX, mouseY, width, height, type, layer, pose)
 
         // Gather every texel the model actually shows under the brush footprint by
         // raycasting a grid of sample points across it (half-texel resolution).
@@ -153,7 +180,7 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
             val sy = if (samplesPerAxis == 1) 0.0 else -half + iy.toDouble() / (samplesPerAxis - 1) * 2 * half
             for (ix in 0 until samplesPerAxis) {
                 val sx = if (samplesPerAxis == 1) 0.0 else -half + ix.toDouble() / (samplesPerAxis - 1) * 2 * half
-                val hit = PaintRaycaster.pick(mc, mouseX + sx, mouseY + sy, width, height, type, layer) ?: continue
+                val hit = PaintRaycaster.pick(mc, mouseX + sx, mouseY + sy, width, height, type, layer, pose) ?: continue
                 val idx = hit.texelY * SkinImage.WIDTH + hit.texelX
                 if (!mask[idx]) continue
                 hits.add(idx)
@@ -207,7 +234,7 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
 
         val overUi = overUi(mouseX.toDouble(), mouseY.toDouble())
         if (!overUi) {
-            PaintState.lastHit = PaintRaycaster.pick(mc, mouseX.toDouble(), mouseY.toDouble(), width, height, PaintState.modelType(mc), PaintState.layer)
+            PaintState.lastHit = PaintRaycaster.pick(mc, mouseX.toDouble(), mouseY.toDouble(), width, height, PaintState.modelType(mc), PaintState.layer, PaintState.pose)
         }
 
         // Brush footprint highlight on the model (sized to brush + zoom).
@@ -224,6 +251,7 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
 
         renderColorPicker(graphics)
         renderControls(graphics)
+        renderPoses(graphics)
         renderHud(graphics)
     }
 
@@ -295,6 +323,22 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
         graphics.fill(cx - half, cy + half - 1, cx + half, cy + half, color)
         graphics.fill(cx - half, cy - half, cx - half + 1, cy + half, color)
         graphics.fill(cx + half - 1, cy - half, cx + half, cy + half, color)
+    }
+
+    private fun renderPoses(graphics: GuiGraphicsExtractor) {
+        val black = 0xFF000000.toInt()
+        val grey = 0xFF555555.toInt()
+        val selected = 0xFF3A6B33.toInt()
+        val white = 0xFFFFFFFF.toInt()
+        graphics.text(this.font, "Pose", controlX, poseGridTop - 11, white, true)
+        for (i in PaintPose.entries.indices) {
+            val pose = PaintPose.entries[i]
+            val x = poseX(i)
+            val y = poseY(i)
+            graphics.fill(x - 1, y - 1, x + poseColW + 1, y + poseBtnH + 1, black)
+            graphics.fill(x, y, x + poseColW, y + poseBtnH, if (PaintState.pose == pose) selected else grey)
+            graphics.text(this.font, pose.label, x + 4, y + 4, white, true)
+        }
     }
 
     private fun renderHud(graphics: GuiGraphicsExtractor) {

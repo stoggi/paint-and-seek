@@ -29,6 +29,7 @@ object PaintRaycaster {
         screenH: Int,
         type: SkinModelType,
         layer: SkinLayer,
+        pose: PaintPose,
     ): TexelHit? {
         val player = mc.player ?: return null
         val camera = mc.gameRenderer.mainCamera()
@@ -64,7 +65,7 @@ object PaintRaycaster {
             Vector3f(),
         ).normalize()
 
-        return PlayerModelGeometry.raycast(rayOrigin, rayDir, type, layer)
+        return PlayerModelGeometry.raycast(rayOrigin, rayDir, type, layer, pose)
     }
 
     private fun lerp(a: Vec3, b: Vec3, t: Double): Vec3 =

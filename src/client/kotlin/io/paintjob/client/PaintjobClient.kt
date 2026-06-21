@@ -1,9 +1,12 @@
 package io.paintjob.client
 
+import io.paintjob.client.paint.ClientPoseStore
 import io.paintjob.client.paint.PaintMode
+import io.paintjob.client.paint.PaintPose
 import io.paintjob.client.skin.PaintedSkinTextures
 import io.paintjob.item.PaintjobItems
 import io.paintjob.net.ClearSkin
+import io.paintjob.net.PoseSync
 import io.paintjob.net.SkinPatch
 import io.paintjob.net.SkinSnapshot
 import net.fabricmc.api.ClientModInitializer
@@ -36,6 +39,7 @@ object PaintjobClient : ClientModInitializer {
         ClientPlayConnectionEvents.DISCONNECT.register { _, _ ->
             PaintMode.restoreCamera()
             PaintedSkinTextures.clearAll()
+            ClientPoseStore.clearAll()
         }
     }
 
@@ -48,6 +52,9 @@ object PaintjobClient : ClientModInitializer {
         }
         ClientPlayNetworking.registerGlobalReceiver(ClearSkin.TYPE) { payload, _ ->
             PaintedSkinTextures.clear(payload.uuid)
+        }
+        ClientPlayNetworking.registerGlobalReceiver(PoseSync.TYPE) { payload, _ ->
+            ClientPoseStore.set(payload.uuid, PaintPose.byId(payload.poseId))
         }
     }
 }

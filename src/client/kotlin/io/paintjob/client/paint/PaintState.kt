@@ -27,6 +27,9 @@ object PaintState {
     var layer: SkinLayer = SkinLayer.BASE
         private set
 
+    /** Currently selected pose (drives picking; networked so others see it). */
+    var pose: PaintPose = PaintPose.DEFAULT
+
     /** Transparent ("eraser") mode — only valid on the overlay layer. */
     var transparentMode: Boolean = false
         private set

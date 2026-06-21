@@ -1,5 +1,6 @@
 package io.paintjob.net
 
+import io.paintjob.skin.ServerPoseStore
 import io.paintjob.skin.ServerSkinStore
 import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry
@@ -22,11 +23,13 @@ object PaintNetworking {
         val c2s = PayloadTypeRegistry.serverboundPlay()
         c2s.register(SubmitSkinPatch.TYPE, SubmitSkinPatch.CODEC)
         c2s.register(SubmitSkinSnapshot.TYPE, SubmitSkinSnapshot.CODEC)
+        c2s.register(SubmitPose.TYPE, SubmitPose.CODEC)
 
         val s2c = PayloadTypeRegistry.clientboundPlay()
         s2c.register(SkinPatch.TYPE, SkinPatch.CODEC)
         s2c.register(SkinSnapshot.TYPE, SkinSnapshot.CODEC)
         s2c.register(ClearSkin.TYPE, ClearSkin.CODEC)
+        s2c.register(PoseSync.TYPE, PoseSync.CODEC)
     }
 
     fun registerServerHandlers() {
@@ -44,12 +47,23 @@ object PaintNetworking {
             broadcastToViewers(player, SkinSnapshot(player.uuid, payload.pixels))
         }
 
+        // Pose selection: store and forward to viewers so everyone sees the stance.
+        ServerPlayNetworking.registerGlobalReceiver(SubmitPose.TYPE) { payload, ctx ->
+            val player = ctx.player()
+            ServerPoseStore.set(player.uuid, payload.poseId)
+            broadcastToViewers(player, PoseSync(player.uuid, payload.poseId))
+        }
+
         // When a player starts tracking a painted player, send them the full skin
         // so they're in sync without waiting for the next stroke.
         EntityTrackingEvents.START_TRACKING.register { tracked, viewer ->
             if (tracked is Player) {
-                val image = ServerSkinStore.get(tracked.uuid) ?: return@register
-                ServerPlayNetworking.send(viewer, SkinSnapshot(tracked.uuid, image.pixels))
+                ServerSkinStore.get(tracked.uuid)?.let {
+                    ServerPlayNetworking.send(viewer, SkinSnapshot(tracked.uuid, it.pixels))
+                }
+                ServerPoseStore.get(tracked.uuid)?.let {
+                    ServerPlayNetworking.send(viewer, PoseSync(tracked.uuid, it))
+                }
             }
         }
     }
