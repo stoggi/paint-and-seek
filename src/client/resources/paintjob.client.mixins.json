@@ -7,7 +7,8 @@
 		"AvatarRendererMixin",
 		"AvatarRenderStateMixin",
 		"CameraMixin",
-		"HumanoidModelMixin"
+		"HumanoidModelMixin",
+		"LivingEntityRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

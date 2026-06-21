@@ -4,7 +4,6 @@ import io.paintjob.client.paint.ClientPoseStore;
 import io.paintjob.client.paint.PaintMode;
 import io.paintjob.client.paint.PaintState;
 import io.paintjob.client.paint.PosedRenderState;
-import io.paintjob.client.skin.PaintedSkinTextures;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
@@ -27,11 +26,5 @@ public class AvatarRendererMixin {
 		((PosedRenderState) state).paintjob$setPose(
 			local ? PaintState.INSTANCE.getPose() : ClientPoseStore.INSTANCE.get(entity.getUUID())
 		);
-
-		// Render painted skins fullbright so the painted colour shows exactly as it
-		// was eye-dropped (no second round of world lighting).
-		if (PaintedSkinTextures.INSTANCE.has(entity.getUUID())) {
-			state.lightCoords = 0xF000F0;
-		}
 	}
 }
