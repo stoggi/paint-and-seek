@@ -1,6 +1,7 @@
 package io.paintjob.client.mixin;
 
 import io.paintjob.client.paint.PaintPose;
+import io.paintjob.client.paint.PosedRenderState;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;

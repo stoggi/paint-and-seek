@@ -1,6 +1,7 @@
 package io.paintjob.client.mixin;
 
 import io.paintjob.client.paint.ClientPoseStore;
+import io.paintjob.client.paint.PosedRenderState;
 import net.minecraft.client.renderer.entity.player.AvatarRenderer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.world.entity.Avatar;

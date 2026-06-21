@@ -2,6 +2,7 @@ package io.paintjob.client.mixin;
 
 import io.paintjob.client.paint.LimbRot;
 import io.paintjob.client.paint.PaintPose;
+import io.paintjob.client.paint.PosedRenderState;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.entity.state.HumanoidRenderState;
