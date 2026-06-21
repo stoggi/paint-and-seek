@@ -8,6 +8,7 @@ import io.paintjob.skin.SkinImage
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.Screenshot
 import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.client.renderer.Lightmap
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.client.renderer.RenderPipelines
@@ -230,12 +231,26 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
         val target = mc.gameRenderer.mainRenderTarget()
         val sw = width.toDouble()
         val sh = height.toDouble()
-        // Sample the exact on-screen pixel. Painted skins render fullbright, so the
-        // painted colour displays exactly as sampled (no re-lighting mismatch).
+        // The framebuffer pixel is the surface already darkened by world lighting.
+        // Recover an approximate albedo by dividing out the local brightness (using
+        // the game's own brightness curve), so the normally-lit painted skin matches
+        // the sampled surface and still reacts to light.
+        val player = mc.player
+        val level = mc.level
+        val brightness = if (player != null && level != null) {
+            val lightLevel = level.getMaxLocalRawBrightness(player.blockPosition())
+            Lightmap.getBrightness(level.dimensionType(), lightLevel).coerceIn(0.08, 1.0)
+        } else {
+            1.0f
+        }
         Screenshot.takeScreenshot(target) { image ->
             val fx = (mouseX / sw * image.width).toInt().coerceIn(0, image.width - 1)
             val fy = (mouseY / sh * image.height).toInt().coerceIn(0, image.height - 1)
-            PaintState.setFromArgb(image.getPixel(fx, fy) or (0xFF shl 24))
+            val argb = image.getPixel(fx, fy)
+            val r = (((argb ushr 16) and 0xFF) / brightness).toInt().coerceIn(0, 255)
+            val g = (((argb ushr 8) and 0xFF) / brightness).toInt().coerceIn(0, 255)
+            val b = ((argb and 0xFF) / brightness).toInt().coerceIn(0, 255)
+            PaintState.setFromArgb((0xFF shl 24) or (r shl 16) or (g shl 8) or b)
             image.close()
         }
     }
