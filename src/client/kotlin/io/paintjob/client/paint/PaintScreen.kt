@@ -46,8 +46,11 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
     private val controlX get() = width - 12 - controlW
     private val toggleX get() = controlX
     private val toggleY get() = height - 12 - 18
-    private val toggleW get() = controlW
+    private val toggleW get() = (controlW - 4) / 2
     private val toggleH = 18
+    private val isolateX get() = toggleX + toggleW + 4
+    private val isolateY get() = toggleY
+    private val isolateW get() = controlW - toggleW - 4
     private val brushSliderX get() = controlX
     private val brushSliderY get() = toggleY - 24
     private val brushSliderW get() = controlW
@@ -116,6 +119,10 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
                     if (isClick) PaintState.toggleLayer()
                     return true
                 }
+                if (inRect(x, y, isolateX, isolateY, isolateW, toggleH)) {
+                    if (isClick) PaintState.partFilter = PaintState.partFilter.next()
+                    return true
+                }
                 for (i in PaintPose.entries.indices) {
                     if (inRect(x, y, poseX(i), poseY(i), poseColW, poseBtnH)) {
                         if (isClick) selectPose(PaintPose.entries[i])
@@ -142,7 +149,7 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
             inRect(x, y, swatchX, swatchY, swatchSize, swatchSize) ||
             inRect(x, y, transX, transY, transSize, transSize) ||
             inRect(x, y, brushSliderX, brushSliderY, brushSliderW, brushSliderH) ||
-            inRect(x, y, toggleX, toggleY, toggleW, toggleH) ||
+            inRect(x, y, controlX, toggleY, controlW, toggleH) ||
             inRect(x, y, controlX, poseGridTop, controlW, poseGridH)
 
     /** Select a pose: drive picking, show it locally at once, and sync to others. */
@@ -159,7 +166,8 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
         val type = PaintState.modelType(mc)
         val layer = PaintState.layer
         val pose = PaintState.pose
-        PaintState.lastHit = PaintRaycaster.pick(mc, mouseX, mouseY, width, height, type, layer, pose)
+        val filter = PaintState.partFilter
+        PaintState.lastHit = PaintRaycaster.pick(mc, mouseX, mouseY, width, height, type, layer, pose, filter)
 
         // Gather every texel the model actually shows under the brush footprint by
         // raycasting a grid of sample points across it (half-texel resolution).
@@ -180,7 +188,7 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
             val sy = if (samplesPerAxis == 1) 0.0 else -half + iy.toDouble() / (samplesPerAxis - 1) * 2 * half
             for (ix in 0 until samplesPerAxis) {
                 val sx = if (samplesPerAxis == 1) 0.0 else -half + ix.toDouble() / (samplesPerAxis - 1) * 2 * half
-                val hit = PaintRaycaster.pick(mc, mouseX + sx, mouseY + sy, width, height, type, layer, pose) ?: continue
+                val hit = PaintRaycaster.pick(mc, mouseX + sx, mouseY + sy, width, height, type, layer, pose, filter) ?: continue
                 val idx = hit.texelY * SkinImage.WIDTH + hit.texelX
                 if (!mask[idx]) continue
                 hits.add(idx)
@@ -234,7 +242,7 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
 
         val overUi = overUi(mouseX.toDouble(), mouseY.toDouble())
         if (!overUi) {
-            PaintState.lastHit = PaintRaycaster.pick(mc, mouseX.toDouble(), mouseY.toDouble(), width, height, PaintState.modelType(mc), PaintState.layer, PaintState.pose)
+            PaintState.lastHit = PaintRaycaster.pick(mc, mouseX.toDouble(), mouseY.toDouble(), width, height, PaintState.modelType(mc), PaintState.layer, PaintState.pose, PaintState.partFilter)
         }
 
         // Brush footprint highlight on the model (sized to brush + zoom).
@@ -302,11 +310,15 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
         val knobX = brushSliderX + (frac * brushSliderW).toInt()
         graphics.fill(knobX - 2, brushSliderY - 2, knobX + 2, brushSliderY + brushSliderH + 2, accent)
 
-        // Layer toggle button.
+        // Layer toggle (left) + part isolate (right).
+        val layerName = if (PaintState.layer == SkinLayer.OVERLAY) "Overlay" else "Base"
         graphics.fill(toggleX - 1, toggleY - 1, toggleX + toggleW + 1, toggleY + toggleH + 1, black)
         graphics.fill(toggleX, toggleY, toggleX + toggleW, toggleY + toggleH, grey)
-        val layerName = if (PaintState.layer == SkinLayer.OVERLAY) "Overlay" else "Base"
-        graphics.text(this.font, "Layer: $layerName", toggleX + 6, toggleY + 5, white, true)
+        graphics.text(this.font, layerName, toggleX + 5, toggleY + 5, white, true)
+
+        graphics.fill(isolateX - 1, toggleY - 1, isolateX + isolateW + 1, toggleY + toggleH + 1, black)
+        graphics.fill(isolateX, toggleY, isolateX + isolateW, toggleY + toggleH, grey)
+        graphics.text(this.font, "Only: ${PaintState.partFilter.label}", isolateX + 5, toggleY + 5, white, true)
     }
 
     /** A square outline at the cursor showing the brush footprint on the model. */

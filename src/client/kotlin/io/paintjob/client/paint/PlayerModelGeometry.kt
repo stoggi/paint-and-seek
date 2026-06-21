@@ -11,6 +11,26 @@ enum class SkinLayer { BASE, OVERLAY }
 
 enum class BodyPart { HEAD, BODY, RIGHT_ARM, LEFT_ARM, RIGHT_LEG, LEFT_LEG }
 
+/** Restricts picking to one part group, so faces obscured by other parts stay reachable. */
+enum class PartFilter(val label: String) {
+    ALL("All"),
+    HEAD("Head"),
+    BODY("Body"),
+    ARMS("Arms"),
+    LEGS("Legs"),
+    ;
+
+    fun matches(part: BodyPart): Boolean = when (this) {
+        ALL -> true
+        HEAD -> part == BodyPart.HEAD
+        BODY -> part == BodyPart.BODY
+        ARMS -> part == BodyPart.RIGHT_ARM || part == BodyPart.LEFT_ARM
+        LEGS -> part == BodyPart.RIGHT_LEG || part == BodyPart.LEFT_LEG
+    }
+
+    fun next(): PartFilter = entries[(ordinal + 1) % entries.size]
+}
+
 /** Result of a successful pick: which skin texel the cursor ray landed on. */
 data class TexelHit(
     val part: BodyPart,
@@ -126,10 +146,18 @@ object PlayerModelGeometry {
      * Cast a ray (model space, neutral pose) against the chosen skin [layer] and
      * return the nearest front-facing skin texel, or null on a miss.
      */
-    fun raycast(rayOrigin: Vector3f, rayDir: Vector3f, type: SkinModelType, layer: SkinLayer, pose: PaintPose): TexelHit? {
+    fun raycast(
+        rayOrigin: Vector3f,
+        rayDir: Vector3f,
+        type: SkinModelType,
+        layer: SkinLayer,
+        pose: PaintPose,
+        filter: PartFilter,
+    ): TexelHit? {
         var bestT = Float.MAX_VALUE
         var bestFace: ModelFace? = null
         for (face in faces(type, layer, pose)) {
+            if (!filter.matches(face.part)) continue // ignore parts in front when isolating
             val t = face.intersect(rayOrigin, rayDir) ?: continue
             if (t < bestT) {
                 bestT = t
