@@ -112,7 +112,7 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
                 }
                 if (inRect(x, y, brushSliderX, brushSliderY, brushSliderW, brushSliderH)) {
                     val frac = ((x - brushSliderX) / brushSliderW).coerceIn(0.0, 1.0)
-                    PaintState.brushRadius = (frac * PaintState.MAX_BRUSH_RADIUS).roundToInt()
+                    PaintState.brushSize = 1 + (frac * (PaintState.MAX_BRUSH_SIZE - 1)).roundToInt()
                     return true
                 }
                 if (inRect(x, y, toggleX, toggleY, toggleW, toggleH)) {
@@ -169,36 +169,39 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
         val filter = PaintState.partFilter
         PaintState.lastHit = PaintRaycaster.pick(mc, mouseX, mouseY, width, height, type, layer, pose, filter)
 
-        // Gather every texel the model actually shows under the brush footprint by
-        // raycasting a grid of sample points across it (half-texel resolution).
-        // This paints exactly what's under the brush even across angled faces and
-        // edges, where a flat texel-space square would miss/overshoot.
-        val r = PaintState.brushRadius
+        // Sample a grid of rays across the brush footprint (half-texel resolution)
+        // and, for each, paint EVERY camera-facing texel the ray passes through —
+        // so occluded-but-visible surfaces (e.g. inner arm behind the body) under
+        // the brush get painted too.
+        val size = PaintState.brushSize
         val texelPx = texelScreenPx(mc)
-        val half = if (r == 0) 0.0 else (r + 0.5) * texelPx
-        val samplesPerAxis = if (r == 0) 1 else (r * 2 + 1) * 2
+        val half = if (size <= 1) 0.0 else (size / 2.0) * texelPx
+        val samplesPerAxis = if (size <= 1) 1 else size * 2
         val mask = PlayerModelGeometry.layerMask(type, layer)
 
         val hits = HashSet<Int>()
-        var minX = Int.MAX_VALUE
-        var minY = Int.MAX_VALUE
-        var maxX = Int.MIN_VALUE
-        var maxY = Int.MIN_VALUE
         for (iy in 0 until samplesPerAxis) {
             val sy = if (samplesPerAxis == 1) 0.0 else -half + iy.toDouble() / (samplesPerAxis - 1) * 2 * half
             for (ix in 0 until samplesPerAxis) {
                 val sx = if (samplesPerAxis == 1) 0.0 else -half + ix.toDouble() / (samplesPerAxis - 1) * 2 * half
-                val hit = PaintRaycaster.pick(mc, mouseX + sx, mouseY + sy, width, height, type, layer, pose, filter) ?: continue
-                val idx = hit.texelY * SkinImage.WIDTH + hit.texelX
-                if (!mask[idx]) continue
-                hits.add(idx)
-                if (hit.texelX < minX) minX = hit.texelX
-                if (hit.texelX > maxX) maxX = hit.texelX
-                if (hit.texelY < minY) minY = hit.texelY
-                if (hit.texelY > maxY) maxY = hit.texelY
+                val (origin, dir) = PaintRaycaster.modelRay(mc, mouseX + sx, mouseY + sy, width, height) ?: continue
+                PlayerModelGeometry.raycastAllTexels(origin, dir, type, layer, pose, filter, mask, hits)
             }
         }
         if (hits.isEmpty()) return
+
+        var minX = Int.MAX_VALUE
+        var minY = Int.MAX_VALUE
+        var maxX = Int.MIN_VALUE
+        var maxY = Int.MIN_VALUE
+        for (idx in hits) {
+            val gx = idx % SkinImage.WIDTH
+            val gy = idx / SkinImage.WIDTH
+            if (gx < minX) minX = gx
+            if (gx > maxX) maxX = gx
+            if (gy < minY) minY = gy
+            if (gy > maxY) maxY = gy
+        }
 
         val color = PaintState.effectivePaintColor()
         val w = maxX - minX + 1
@@ -302,11 +305,10 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
         val accent = 0xFF6DA8FF.toInt()
 
         // Brush size slider.
-        val diameter = PaintState.brushRadius * 2 + 1
-        graphics.text(this.font, "Brush: ${diameter}px", brushSliderX, brushSliderY - 11, white, true)
+        graphics.text(this.font, "Brush: ${PaintState.brushSize}px", brushSliderX, brushSliderY - 11, white, true)
         graphics.fill(brushSliderX - 1, brushSliderY - 1, brushSliderX + brushSliderW + 1, brushSliderY + brushSliderH + 1, black)
         graphics.fill(brushSliderX, brushSliderY, brushSliderX + brushSliderW, brushSliderY + brushSliderH, grey)
-        val frac = PaintState.brushRadius.toFloat() / PaintState.MAX_BRUSH_RADIUS
+        val frac = (PaintState.brushSize - 1).toFloat() / (PaintState.MAX_BRUSH_SIZE - 1)
         val knobX = brushSliderX + (frac * brushSliderW).toInt()
         graphics.fill(knobX - 2, brushSliderY - 2, knobX + 2, brushSliderY + brushSliderH + 2, accent)
 
@@ -323,7 +325,7 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
 
     /** A square outline at the cursor showing the brush footprint on the model. */
     private fun renderBrushHighlight(graphics: GuiGraphicsExtractor, mc: net.minecraft.client.Minecraft, mouseX: Int, mouseY: Int) {
-        val half = ((PaintState.brushRadius + 0.5) * texelScreenPx(mc)).toInt().coerceIn(2, 400)
+        val half = ((PaintState.brushSize / 2.0) * texelScreenPx(mc)).toInt().coerceIn(2, 400)
         val preview = if (PaintState.transparentMode) 0xFFFFFFFF.toInt() else (PaintState.colorArgb or (0xFF shl 24))
         squareOutline(graphics, mouseX, mouseY, half, 0xFF000000.toInt())
         squareOutline(graphics, mouseX, mouseY, half - 1, preview)

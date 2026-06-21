@@ -20,16 +20,20 @@ object PaintjobCommand {
                     .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
                     .then(
                         Commands.literal("newround")
-                            .executes { ctx -> newRound(ctx, null, GameManager.DEFAULT_HIDE_SECONDS, GameManager.DEFAULT_SEEK_SECONDS) }
+                            .executes { ctx -> newRound(ctx, null, GameManager.DEFAULT_HIDE_SECONDS, GameManager.DEFAULT_SEEK_SECONDS, GameManager.DEFAULT_ARROWS) }
                             .then(
                                 Commands.argument("seeker", EntityArgument.player())
-                                    .executes { ctx -> newRound(ctx, seekerOf(ctx), GameManager.DEFAULT_HIDE_SECONDS, GameManager.DEFAULT_SEEK_SECONDS) }
+                                    .executes { ctx -> newRound(ctx, seekerOf(ctx), GameManager.DEFAULT_HIDE_SECONDS, GameManager.DEFAULT_SEEK_SECONDS, GameManager.DEFAULT_ARROWS) }
                                     .then(
                                         Commands.argument("hideTime", IntegerArgumentType.integer(0))
-                                            .executes { ctx -> newRound(ctx, seekerOf(ctx), intOf(ctx, "hideTime"), GameManager.DEFAULT_SEEK_SECONDS) }
+                                            .executes { ctx -> newRound(ctx, seekerOf(ctx), intOf(ctx, "hideTime"), GameManager.DEFAULT_SEEK_SECONDS, GameManager.DEFAULT_ARROWS) }
                                             .then(
                                                 Commands.argument("seekTime", IntegerArgumentType.integer(1))
-                                                    .executes { ctx -> newRound(ctx, seekerOf(ctx), intOf(ctx, "hideTime"), intOf(ctx, "seekTime")) },
+                                                    .executes { ctx -> newRound(ctx, seekerOf(ctx), intOf(ctx, "hideTime"), intOf(ctx, "seekTime"), GameManager.DEFAULT_ARROWS) }
+                                                    .then(
+                                                        Commands.argument("arrows", IntegerArgumentType.integer(0))
+                                                            .executes { ctx -> newRound(ctx, seekerOf(ctx), intOf(ctx, "hideTime"), intOf(ctx, "seekTime"), intOf(ctx, "arrows")) },
+                                                    ),
                                             ),
                                     ),
                             ),
@@ -45,8 +49,8 @@ object PaintjobCommand {
     private fun seekerOf(ctx: CommandContext<CommandSourceStack>) = EntityArgument.getPlayer(ctx, "seeker")
     private fun intOf(ctx: CommandContext<CommandSourceStack>, name: String) = IntegerArgumentType.getInteger(ctx, name)
 
-    private fun newRound(ctx: CommandContext<CommandSourceStack>, seeker: ServerPlayer?, hideTime: Int, seekTime: Int): Int {
-        val result = GameManager.newRound(ctx.source.server, seeker, hideTime, seekTime)
+    private fun newRound(ctx: CommandContext<CommandSourceStack>, seeker: ServerPlayer?, hideTime: Int, seekTime: Int, arrows: Int): Int {
+        val result = GameManager.newRound(ctx.source.server, seeker, hideTime, seekTime, arrows)
         ctx.source.sendSuccess({ result }, true)
         return 1
     }

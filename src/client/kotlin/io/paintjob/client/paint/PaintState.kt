@@ -20,8 +20,8 @@ object PaintState {
     var colorArgb: Int = ColorUtil.hsvToArgb(0f, 1f, 1f)
         private set
 
-    /** Brush radius in texels (0 = single pixel, 1 = 3x3, ...). */
-    var brushRadius: Int = 1
+    /** Brush diameter in texels (1, 2, 3, ...). */
+    var brushSize: Int = 1
 
     /** Which skin layer is being painted/picked. */
     var layer: SkinLayer = SkinLayer.BASE
@@ -40,7 +40,7 @@ object PaintState {
     /** Most recent pick, for the debug HUD. */
     var lastHit: TexelHit? = null
 
-    const val MAX_BRUSH_RADIUS = 6
+    const val MAX_BRUSH_SIZE = 12
 
     fun toggleLayer() {
         layer = if (layer == SkinLayer.BASE) SkinLayer.OVERLAY else SkinLayer.BASE

@@ -1,5 +1,6 @@
 package io.paintjob.game
 
+import io.paintjob.Paintjob
 import io.paintjob.item.PaintjobItems
 import io.paintjob.net.ClearSkin
 import io.paintjob.net.PoseSync
@@ -7,15 +8,22 @@ import io.paintjob.skin.ServerPoseStore
 import io.paintjob.skin.ServerSkinStore
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.ChatFormatting
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.entity.ai.attributes.Attributes
+import net.minecraft.world.waypoints.WaypointTransmitter
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.MutableComponent
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.entity.Entity
-import net.minecraft.world.entity.player.Player
+import net.minecraft.world.damagesource.DamageSource
+import net.minecraft.world.effect.MobEffectInstance
+import net.minecraft.world.effect.MobEffects
+import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.projectile.arrow.SpectralArrow
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
 import net.minecraft.world.level.ClipContext
 import net.minecraft.world.phys.HitResult
 import net.minecraft.world.phys.Vec3
@@ -40,6 +48,7 @@ import kotlin.math.cos
 object GameManager {
     const val DEFAULT_HIDE_SECONDS = 120
     const val DEFAULT_SEEK_SECONDS = 300
+    const val DEFAULT_ARROWS = 20
 
     private const val OBJECTIVE_NAME = "paintjob"
     private const val HIDER_TEAM = "pj_hiders"
@@ -69,7 +78,9 @@ object GameManager {
 
     val isActive: Boolean get() = phase != Phase.NONE
 
-    fun newRound(server: MinecraftServer, chosenSeeker: ServerPlayer?, hideSeconds: Int, seekSeconds: Int): Component {
+    fun newRound(server: MinecraftServer, chosenSeeker: ServerPlayer?, hideSeconds: Int, seekSeconds: Int, arrows: Int): Component {
+        revertSkins(server) // reset last round's painted skins/poses only when a new round begins
+        for (player in server.playerList.players) player.removeEffect(MobEffects.GLOWING) // clear survivor glow
         clear(server)
 
         val players = server.playerList.players
@@ -99,8 +110,14 @@ object GameManager {
             scoreboard.getOrCreatePlayerScore(player, objective).set(0)
             player.inventory.add(ItemStack(PaintjobItems.paintBrush)) // hiders get a brush
         }
-        // The seeker gets a brush too, to paint themselves during the hide phase.
+        // The seeker gets a brush, plus a bow and spectral arrows to tag hiders.
         seeker.inventory.add(ItemStack(PaintjobItems.paintBrush))
+        seeker.inventory.add(ItemStack(Items.BOW))
+        if (arrows > 0) seeker.inventory.add(ItemStack(Items.SPECTRAL_ARROW, arrows))
+
+        // Hide every participant from the locator bar so positions aren't given away.
+        hideLocator(seeker)
+        for (uuid in hiders.keys) server.playerList.getPlayer(uuid)?.let { hideLocator(it) }
 
         phase = Phase.HIDE
         hideTicksLeft = hideSeconds * 20
@@ -128,6 +145,12 @@ object GameManager {
                 .append(msg("SEEKER WINS! ($seekerName)", ChatFormatting.RED, bold = true))
             else -> {
                 val survivors = hiders.values.count { !it.locked }
+                // Surviving hiders glow for 120s (cleared on new round).
+                for ((uuid, state) in hiders) {
+                    if (!state.locked) {
+                        server.playerList.getPlayer(uuid)?.addEffect(MobEffectInstance(MobEffects.GLOWING, 120 * 20))
+                    }
+                }
                 msg("Time's up — ", ChatFormatting.AQUA)
                     .append(msg("HIDERS WIN! ", ChatFormatting.GREEN, bold = true))
                     .append(msg("$survivors survived.", ChatFormatting.AQUA))
@@ -139,20 +162,20 @@ object GameManager {
         return msg("Round ended.", ChatFormatting.GREEN)
     }
 
-    /** Lock a hider that punches the seeker. Returns true to cancel the damage. */
-    fun onPlayerAttack(attacker: Player, target: Entity): Boolean {
-        if (phase == Phase.NONE) return false
-        val state = hiders[attacker.uuid] ?: return false
-        if (target.uuid != seekerId || state.locked) return false
+    /** A hider is found only when struck by the seeker's spectral arrow. */
+    fun onEntityDamaged(victim: LivingEntity, source: DamageSource) {
+        if (phase == Phase.NONE) return
+        if (source.directEntity !is SpectralArrow) return
+        val state = hiders[victim.uuid] ?: return
+        if (state.locked) return
+        val server = victim.level().server ?: return
 
         state.locked = true
-        val server = attacker.level().server ?: return true
         server.scoreboard.getPlayerTeam(LOCKED_TEAM)?.let { server.scoreboard.addPlayerToTeam(state.name, it) }
         server.playerList.broadcastSystemMessage(
             msg(state.name, ChatFormatting.RED).append(msg(" was found!", ChatFormatting.GRAY)),
             false,
         )
-        return true
     }
 
     fun tick(server: MinecraftServer) {
@@ -262,6 +285,24 @@ object GameManager {
         }
     }
 
+    private val LOCATOR_HIDE_ID = Paintjob.id("locator_hidden")
+
+    /** Zero a player's waypoint-transmit range so they vanish from the locator bar. */
+    private fun hideLocator(player: ServerPlayer) {
+        val attr = player.getAttribute(Attributes.WAYPOINT_TRANSMIT_RANGE) ?: return
+        attr.addTransientModifier(
+            AttributeModifier(LOCATOR_HIDE_ID, -1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL),
+        )
+        player.level().waypointManager.untrackWaypoint(player as WaypointTransmitter)
+    }
+
+    private fun revealLocator(player: ServerPlayer) {
+        val attr = player.getAttribute(Attributes.WAYPOINT_TRANSMIT_RANGE) ?: return
+        if (attr.removeModifier(LOCATOR_HIDE_ID)) {
+            player.level().waypointManager.trackWaypoint(player as WaypointTransmitter)
+        }
+    }
+
     private fun removeBrushes(server: MinecraftServer) {
         for (player in server.playerList.players) {
             val inv = player.inventory
@@ -273,7 +314,9 @@ object GameManager {
 
     private fun clear(server: MinecraftServer) {
         removeBrushes(server)
-        revertSkins(server)
+        // Re-show participants on the locator bar.
+        seekerId?.let { server.playerList.getPlayer(it) }?.let { revealLocator(it) }
+        for (uuid in hiders.keys) server.playerList.getPlayer(uuid)?.let { revealLocator(it) }
         val scoreboard = server.scoreboard
         scoreboard.getObjective(OBJECTIVE_NAME)?.let { scoreboard.removeObjective(it) }
         scoreboard.getPlayerTeam(HIDER_TEAM)?.let { scoreboard.removePlayerTeam(it) }

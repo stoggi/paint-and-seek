@@ -169,6 +169,31 @@ object PlayerModelGeometry {
         return TexelHit(face.part, tx, ty, bestT)
     }
 
+    /**
+     * Every front-facing (camera-facing) face the ray passes through — not just
+     * the nearest. Lets a brush paint occluded-but-visible-facing surfaces (e.g.
+     * the inner arm behind the body) that fall under the brush footprint. Adds
+     * texel indices that pass [mask] into [out].
+     */
+    fun raycastAllTexels(
+        rayOrigin: Vector3f,
+        rayDir: Vector3f,
+        type: SkinModelType,
+        layer: SkinLayer,
+        pose: PaintPose,
+        filter: PartFilter,
+        mask: BooleanArray,
+        out: MutableCollection<Int>,
+    ) {
+        for (face in faces(type, layer, pose)) {
+            if (!filter.matches(face.part)) continue
+            val t = face.intersect(rayOrigin, rayDir) ?: continue // front-facing + within quad
+            val (tx, ty) = face.texel(rayOrigin, rayDir, t)
+            val idx = ty * SkinImage.WIDTH + tx
+            if (mask[idx]) out.add(idx)
+        }
+    }
+
     private fun buildModel(type: SkinModelType, layer: SkinLayer, pose: PaintPose): List<ModelFace> {
         val armW = if (type == SkinModelType.SLIM) 3f else 4f
         val faces = ArrayList<ModelFace>(36)

@@ -21,17 +21,8 @@ import org.joml.Vector3f
  * since the player isn't turning to look around).
  */
 object PaintRaycaster {
-    fun pick(
-        mc: Minecraft,
-        mouseX: Double,
-        mouseY: Double,
-        screenW: Int,
-        screenH: Int,
-        type: SkinModelType,
-        layer: SkinLayer,
-        pose: PaintPose,
-        filter: PartFilter,
-    ): TexelHit? {
+    /** Cursor -> (origin, dir) ray in the local player's model-pixel space, or null. */
+    fun modelRay(mc: Minecraft, mouseX: Double, mouseY: Double, screenW: Int, screenH: Int): Pair<Vector3f, Vector3f>? {
         val player = mc.player ?: return null
         val camera = mc.gameRenderer.mainCamera()
         if (!camera.isInitialized) return null
@@ -65,8 +56,22 @@ object PaintRaycaster {
             Vector3f(planePoint.x.toFloat(), planePoint.y.toFloat(), planePoint.z.toFloat()),
             Vector3f(),
         ).normalize()
+        return rayOrigin to rayDir
+    }
 
-        return PlayerModelGeometry.raycast(rayOrigin, rayDir, type, layer, pose, filter)
+    fun pick(
+        mc: Minecraft,
+        mouseX: Double,
+        mouseY: Double,
+        screenW: Int,
+        screenH: Int,
+        type: SkinModelType,
+        layer: SkinLayer,
+        pose: PaintPose,
+        filter: PartFilter,
+    ): TexelHit? {
+        val (origin, dir) = modelRay(mc, mouseX, mouseY, screenW, screenH) ?: return null
+        return PlayerModelGeometry.raycast(origin, dir, type, layer, pose, filter)
     }
 
     private fun lerp(a: Vec3, b: Vec3, t: Double): Vec3 =
