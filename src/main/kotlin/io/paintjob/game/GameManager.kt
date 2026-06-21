@@ -108,9 +108,11 @@ object GameManager {
             hiders[player.uuid] = HiderState(player.scoreboardName)
             scoreboard.addPlayerToTeam(player.scoreboardName, hiderTeam)
             scoreboard.getOrCreatePlayerScore(player, objective).set(0)
+            player.inventory.clearContent() // fresh inventory for the round
             player.inventory.add(ItemStack(PaintjobItems.paintBrush)) // hiders get a brush
         }
         // The seeker gets a brush, plus a bow and spectral arrows to tag hiders.
+        seeker.inventory.clearContent()
         seeker.inventory.add(ItemStack(PaintjobItems.paintBrush))
         seeker.inventory.add(ItemStack(Items.BOW))
         if (arrows > 0) seeker.inventory.add(ItemStack(Items.SPECTRAL_ARROW, arrows))
