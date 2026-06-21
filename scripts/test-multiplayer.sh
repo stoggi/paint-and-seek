@@ -44,6 +44,7 @@ spawn-protection=0
 max-players=8
 view-distance=6
 level-type=minecraft\:flat
+difficulty=peaceful
 motd=PaintAndSeek test
 EOF
 
@@ -61,6 +62,23 @@ offline_uuid() {
   echo "]"
 } > run/ops.json
 echo "Wrote run/ops.json (${PLAYERS[*]} as ops)."
+
+# --- client options (shared run/options.txt for all 4 clients) ---
+# Enforced each run because Minecraft rewrites options.txt on exit.
+#   pauseOnLostFocus=false  -> clients keep running when you click away
+#   soundCategory_music=0.0 -> mute background music
+set_option() {
+  local key="$1" val="$2" file="run/options.txt"
+  touch "$file"
+  if grep -q "^${key}:" "$file"; then
+    sed -i '' "s/^${key}:.*/${key}:${val}/" "$file"
+  else
+    printf '%s:%s\n' "$key" "$val" >> "$file"
+  fi
+}
+set_option pauseOnLostFocus false
+set_option soundCategory_music 0.0
+echo "Set client options (pauseOnLostFocus=false, music muted)."
 
 # --- start server, stdin held open so it doesn't stop on EOF ---
 echo "Starting server (log: $LOGDIR/server.log)..."

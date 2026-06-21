@@ -54,6 +54,37 @@ tasks.processResources {
 	}
 }
 
+// Mirror the datapack functions into the standalone example datapack so the two
+// copies don't drift. Sync (not Copy) so removed/renamed functions are pruned too.
+// pack.mcmeta and README.md live outside function/ and are left untouched.
+val syncExampleDatapack by tasks.registering(Sync::class) {
+	description = "Copies the paintandseek datapack functions into example-datapack/."
+	group = "build"
+	from("src/main/resources/data/paintandseek/function")
+	into("example-datapack/paintandseek-defaults/data/paintandseek/function")
+}
+
+// Keep the example datapack in sync whenever resources are processed (build/run).
+tasks.processResources {
+	finalizedBy(syncExampleDatapack)
+}
+
+// Package the example datapack into a drop-in zip alongside the jar in build/libs.
+// Zips the *contents* of paintandseek-defaults/ so pack.mcmeta and data/ sit at the
+// zip root, which is the structure Minecraft expects in a world's datapacks/ folder.
+val datapackZip by tasks.registering(Zip::class) {
+	description = "Packages the example datapack into a drop-in zip alongside the jar."
+	group = "build"
+	dependsOn(syncExampleDatapack) // ensure the functions are current first
+	from("example-datapack/paintandseek-defaults")
+	archiveFileName = "paintandseek-datapack-${project.version}.zip"
+	destinationDirectory = layout.buildDirectory.dir("libs")
+}
+
+tasks.named("build") {
+	dependsOn(datapackZip)
+}
+
 tasks.withType<JavaCompile>().configureEach {
 	options.release = 25
 }
