@@ -1,9 +1,9 @@
 {
 	"schemaVersion": 1,
-	"id": "paintjob",
+	"id": "paintandseek",
 	"version": "${version}",
-	"name": "paintjob",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"name": "PaintAndSeek",
+	"description": "Hide-and-seek where hiders paint their skin in-game to blend into the environment.",
 	"authors": [
 		"Me!"
 	],
@@ -12,32 +12,32 @@
 		"sources": "https://github.com/FabricMC/fabric-example-mod"
 	},
 	"license": "CC0-1.0",
-	"icon": "assets/paintjob/icon.png",
+	"icon": "assets/paintandseek/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
 			{
-				"value": "io.paintjob.Paintjob",
+				"value": "io.paintandseek.PaintAndSeek",
 				"adapter": "kotlin"
 			}
 		],
 		"client": [
 			{
-				"value": "io.paintjob.client.PaintjobClient",
+				"value": "io.paintandseek.client.PaintAndSeekClient",
 				"adapter": "kotlin"
 			}
 		],
 		"fabric-datagen": [
 			{
-				"value": "io.paintjob.client.PaintjobDataGenerator",
+				"value": "io.paintandseek.client.PaintAndSeekDataGenerator",
 				"adapter": "kotlin"
 			}
 		]
 	},
 	"mixins": [
-		"paintjob.mixins.json",
+		"paintandseek.mixins.json",
 		{
-			"config": "paintjob.client.mixins.json",
+			"config": "paintandseek.client.mixins.json",
 			"environment": "client"
 		}
 	],

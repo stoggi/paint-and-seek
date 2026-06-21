@@ -20,4 +20,4 @@ plugins {
 }
 
 // Should match your modid
-rootProject.name = "paintjob"
+rootProject.name = "paintandseek"

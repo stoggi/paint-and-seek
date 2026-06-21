@@ -21,7 +21,7 @@ loom {
 	splitEnvironmentSourceSets()
 
 	mods {
-		register("paintjob") {
+		register("paintandseek") {
 			sourceSet(sourceSets.main.get())
 			sourceSet(sourceSets.getByName("client"))
 		}

@@ -1,4 +1,4 @@
-# paintjob
+# paintandseek
 
 ## Setup
 

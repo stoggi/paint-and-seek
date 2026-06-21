@@ -1,0 +1,19 @@
+{
+	"required": true,
+	"package": "io.paintandseek.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"AbstractClientPlayerMixin",
+		"AvatarRendererMixin",
+		"AvatarRenderStateMixin",
+		"CameraMixin",
+		"HumanoidModelMixin",
+		"LivingEntityRendererMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}
