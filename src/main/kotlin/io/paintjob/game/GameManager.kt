@@ -1,6 +1,9 @@
 package io.paintjob.game
 
 import io.paintjob.item.PaintjobItems
+import io.paintjob.net.ClearSkin
+import io.paintjob.skin.ServerSkinStore
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.MutableComponent
@@ -236,6 +239,19 @@ object GameManager {
         player.connection.send(ClientboundSetTitleTextPacket(title))
     }
 
+    /** Drop every participant's painted skin so they revert to their real skin. */
+    private fun revertSkins(server: MinecraftServer) {
+        val participants = buildList {
+            seekerId?.let { add(it) }
+            addAll(hiders.keys)
+        }
+        if (participants.isEmpty()) return
+        for (uuid in participants) ServerSkinStore.clear(uuid)
+        for (viewer in server.playerList.players) {
+            for (uuid in participants) ServerPlayNetworking.send(viewer, ClearSkin(uuid))
+        }
+    }
+
     private fun removeBrushes(server: MinecraftServer) {
         for (player in server.playerList.players) {
             val inv = player.inventory
@@ -247,6 +263,7 @@ object GameManager {
 
     private fun clear(server: MinecraftServer) {
         removeBrushes(server)
+        revertSkins(server)
         val scoreboard = server.scoreboard
         scoreboard.getObjective(OBJECTIVE_NAME)?.let { scoreboard.removeObjective(it) }
         scoreboard.getPlayerTeam(HIDER_TEAM)?.let { scoreboard.removePlayerTeam(it) }

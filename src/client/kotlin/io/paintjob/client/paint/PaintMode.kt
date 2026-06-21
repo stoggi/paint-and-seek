@@ -29,13 +29,17 @@ object PaintMode {
         val mc = Minecraft.getInstance()
         val player = mc.player ?: return
 
-        // Seed the painted skin from the current skin ONLY the first time — once a
-        // painted skin exists, re-entering must keep the player's progress (and we
-        // must not read back our own painted texture, which isn't a resource).
+        // Seed the painted skin from the real skin ONLY the first time — once a
+        // painted skin exists, re-entering keeps the player's progress. The read
+        // may be async (GPU readback for custom skins), so apply in the callback.
         if (!PaintedSkinTextures.has(player.uuid)) {
-            val pixels = SkinSeed.readCurrentSkin(mc)
-            PaintedSkinTextures.applySnapshot(player.uuid, pixels)
-            ClientPlayNetworking.send(SubmitSkinSnapshot(pixels))
+            val type = PaintState.modelType(mc)
+            val uuid = player.uuid
+            SkinSeed.seed(mc) { pixels ->
+                clearOverlay(pixels, type) // start with a clean overlay layer
+                PaintedSkinTextures.applySnapshot(uuid, pixels)
+                ClientPlayNetworking.send(SubmitSkinSnapshot(pixels))
+            }
         }
 
         PaintCamera.reset(player)
@@ -54,6 +58,14 @@ object PaintMode {
             mc.gui.setScreen(null) // triggers PaintScreen.removed() -> restoreCamera()
         } else {
             restoreCamera()
+        }
+    }
+
+    /** Make the overlay layer's texels transparent (default clean overlay). */
+    private fun clearOverlay(pixels: IntArray, type: SkinModelType) {
+        val mask = PlayerModelGeometry.layerMask(type, SkinLayer.OVERLAY)
+        for (i in pixels.indices) {
+            if (mask[i]) pixels[i] = 0
         }
     }
 
