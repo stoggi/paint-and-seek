@@ -1,37 +1,29 @@
 package io.paintandseek.game
 
 import io.paintandseek.PaintAndSeek
-import io.paintandseek.item.PaintAndSeekItems
 import io.paintandseek.net.ClearSkin
 import io.paintandseek.net.PoseSync
 import io.paintandseek.skin.ServerPoseStore
 import io.paintandseek.skin.ServerSkinStore
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.ChatFormatting
-import net.minecraft.world.entity.ai.attributes.AttributeModifier
-import net.minecraft.world.entity.ai.attributes.Attributes
-import net.minecraft.world.waypoints.WaypointTransmitter
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.MutableComponent
-import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket
-import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.damagesource.DamageSource
-import net.minecraft.world.effect.MobEffectInstance
-import net.minecraft.world.effect.MobEffects
 import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.ai.attributes.AttributeModifier
+import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.entity.projectile.arrow.SpectralArrow
-import net.minecraft.world.item.ItemStack
-import net.minecraft.world.item.Items
 import net.minecraft.world.level.ClipContext
 import net.minecraft.world.phys.HitResult
 import net.minecraft.world.phys.Vec3
 import net.minecraft.world.scores.DisplaySlot
-import net.minecraft.world.scores.Objective
 import net.minecraft.world.scores.Team
 import net.minecraft.world.scores.TeamColor
 import net.minecraft.world.scores.criteria.ObjectiveCriteria
+import net.minecraft.world.waypoints.WaypointTransmitter
 import java.util.Optional
 import java.util.UUID
 import kotlin.math.cos
@@ -39,20 +31,31 @@ import kotlin.math.cos
 /**
  * Server-side hide-and-seek round controller.
  *
- * A round has a HIDE phase (hiders get paint brushes and go disguise themselves;
- * no scoring) then a SEEK phase (the seeker hunts; hiders in the seeker's view
- * cone + line of sight score points). A hider that punches the seeker is "found"
- * (locked: red on the scoreboard, scoring stops). The round ends when every hider
- * is found (seeker wins) or the seek timer runs out with survivors (hiders win).
+ * The mod runs the "engine" (role assignment, phase timers, FOV scoring,
+ * spectral-arrow detection, win conditions, hidden nametags + locator bar, the
+ * scoreboard) and tags participants. Everything customisable — giving items,
+ * titles, effects, announcements — is delegated to editable datapack functions
+ * under the `paintandseek:` namespace (the .mcfunction files in
+ * data/paintandseek/function), which run at lifecycle hooks and can be
+ * overridden by any datapack.
+ *
+ * Tags applied to participants (target these from your functions/command blocks):
+ *   paintandseek.player, paintandseek.seeker, paintandseek.hider, paintandseek.found
  */
 object GameManager {
     const val DEFAULT_HIDE_SECONDS = 120
     const val DEFAULT_SEEK_SECONDS = 300
     const val DEFAULT_ARROWS = 20
 
+    private const val NS = PaintAndSeek.MOD_ID
+    private const val TAG_PLAYER = "$NS.player"
+    private const val TAG_SEEKER = "$NS.seeker"
+    private const val TAG_HIDER = "$NS.hider"
+    private const val TAG_FOUND = "$NS.found"
+
     private const val OBJECTIVE_NAME = "paintandseek"
-    private const val HIDER_TEAM = "pj_hiders"
-    private const val LOCKED_TEAM = "pj_locked"
+    private const val HIDER_TEAM = "pas_hiders"
+    private const val LOCKED_TEAM = "pas_locked"
 
     private const val FOV_HALF_ANGLE_DEG = 35.0 // ~70° cone
     private const val MAX_RANGE = 64.0
@@ -80,7 +83,7 @@ object GameManager {
 
     fun newRound(server: MinecraftServer, chosenSeeker: ServerPlayer?, hideSeconds: Int, seekSeconds: Int, arrows: Int): Component {
         revertSkins(server) // reset last round's painted skins/poses only when a new round begins
-        for (player in server.playerList.players) player.removeEffect(MobEffects.GLOWING) // clear survivor glow
+        runFunction(server, "reset") // editable: clears leftover effects (glow)
         clear(server)
 
         val players = server.playerList.players
@@ -108,31 +111,25 @@ object GameManager {
             hiders[player.uuid] = HiderState(player.scoreboardName)
             scoreboard.addPlayerToTeam(player.scoreboardName, hiderTeam)
             scoreboard.getOrCreatePlayerScore(player, objective).set(0)
-            player.inventory.clearContent() // fresh inventory for the round
-            player.inventory.add(ItemStack(PaintAndSeekItems.paintBrush)) // hiders get a brush
+            player.addTag(TAG_PLAYER)
+            player.addTag(TAG_HIDER)
+            hideLocator(player)
         }
-        // The seeker gets a brush, plus a bow and spectral arrows to tag hiders.
-        seeker.inventory.clearContent()
-        seeker.inventory.add(ItemStack(PaintAndSeekItems.paintBrush))
-        seeker.inventory.add(ItemStack(Items.BOW))
-        if (arrows > 0) seeker.inventory.add(ItemStack(Items.SPECTRAL_ARROW, arrows))
-
-        // Hide every participant from the locator bar so positions aren't given away.
+        seeker.addTag(TAG_PLAYER)
+        seeker.addTag(TAG_SEEKER)
         hideLocator(seeker)
-        for (uuid in hiders.keys) server.playerList.getPlayer(uuid)?.let { hideLocator(it) }
 
         phase = Phase.HIDE
         hideTicksLeft = hideSeconds * 20
         seekTicksLeft = seekSeconds * 20
         displayCounter = 0
         updateTimerDisplay(server)
-        showRoleTitles(server)
 
-        server.playerList.broadcastSystemMessage(
-            msg("PaintAndSeek — seeker is ", ChatFormatting.AQUA).append(msg(seekerName, ChatFormatting.RED))
-                .append(msg(". Hiders have ${hideSeconds}s to hide and paint!", ChatFormatting.AQUA)),
-            false,
-        )
+        // Customisable hooks (run after tags are set so selectors work).
+        runFunction(server, "on_start")
+        runFunction(server, "execute as @a[tag=$TAG_SEEKER] at @s run function $NS:setup_seeker {arrows:$arrows}")
+        runFunction(server, "execute as @a[tag=$TAG_HIDER] at @s run function $NS:setup_hider")
+
         return msg("Round started. Seeker: $seekerName, hiders: ${hiders.size}", ChatFormatting.GREEN)
     }
 
@@ -141,24 +138,11 @@ object GameManager {
 
         val hasHiders = hiders.isNotEmpty()
         val allFound = hasHiders && hiders.values.all { it.locked }
-        val announcement = when {
-            !hasHiders -> msg("PaintAndSeek round over — no hiders.", ChatFormatting.AQUA)
-            allFound -> msg("All hiders found — ", ChatFormatting.AQUA)
-                .append(msg("SEEKER WINS! ($seekerName)", ChatFormatting.RED, bold = true))
-            else -> {
-                val survivors = hiders.values.count { !it.locked }
-                // Surviving hiders glow for 120s (cleared on new round).
-                for ((uuid, state) in hiders) {
-                    if (!state.locked) {
-                        server.playerList.getPlayer(uuid)?.addEffect(MobEffectInstance(MobEffects.GLOWING, 120 * 20))
-                    }
-                }
-                msg("Time's up — ", ChatFormatting.AQUA)
-                    .append(msg("HIDERS WIN! ", ChatFormatting.GREEN, bold = true))
-                    .append(msg("$survivors survived.", ChatFormatting.AQUA))
-            }
+        when {
+            !hasHiders -> {}
+            allFound -> runFunction(server, "on_seeker_win")
+            else -> runFunction(server, "on_hider_win")
         }
-        server.playerList.broadcastSystemMessage(announcement, false)
 
         clear(server)
         return msg("Round ended.", ChatFormatting.GREEN)
@@ -173,11 +157,9 @@ object GameManager {
         val server = victim.level().server ?: return
 
         state.locked = true
+        victim.addTag(TAG_FOUND)
         server.scoreboard.getPlayerTeam(LOCKED_TEAM)?.let { server.scoreboard.addPlayerToTeam(state.name, it) }
-        server.playerList.broadcastSystemMessage(
-            msg(state.name, ChatFormatting.RED).append(msg(" was found!", ChatFormatting.GRAY)),
-            false,
-        )
+        runFunction(server, "execute as ${state.name} at @s run function $NS:on_found")
     }
 
     fun tick(server: MinecraftServer) {
@@ -203,8 +185,7 @@ object GameManager {
 
     private fun startSeek(server: MinecraftServer) {
         phase = Phase.SEEK
-        server.playerList.broadcastSystemMessage(msg("Seek time — find the hiders!", ChatFormatting.GOLD), false)
-        for (player in server.playerList.players) sendTitle(player, msg("SEEK!", ChatFormatting.GOLD, bold = true))
+        runFunction(server, "start_seek")
         updateTimerDisplay(server)
     }
 
@@ -252,20 +233,10 @@ object GameManager {
         return "%d:%02d".format(total / 60, total % 60)
     }
 
-    private fun showRoleTitles(server: MinecraftServer) {
-        for (player in server.playerList.players) {
-            val title = if (player.uuid == seekerId) {
-                msg("SEEKING", ChatFormatting.RED, bold = true)
-            } else {
-                msg("HIDING", ChatFormatting.GREEN, bold = true)
-            }
-            sendTitle(player, title)
-        }
-    }
-
-    private fun sendTitle(player: ServerPlayer, title: Component) {
-        player.connection.send(ClientboundSetTitlesAnimationPacket(10, 70, 20)) // ~5s
-        player.connection.send(ClientboundSetTitleTextPacket(title))
+    /** Run a paintandseek datapack function, or a raw command (if it contains a space). */
+    private fun runFunction(server: MinecraftServer, nameOrCommand: String) {
+        val command = if (nameOrCommand.contains(' ')) nameOrCommand else "function $NS:$nameOrCommand"
+        server.commands.performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(), command)
     }
 
     /** Drop every participant's painted skin so they revert to their real skin. */
@@ -305,20 +276,20 @@ object GameManager {
         }
     }
 
-    private fun removeBrushes(server: MinecraftServer) {
-        for (player in server.playerList.players) {
-            val inv = player.inventory
-            for (i in 0 until inv.containerSize) {
-                if (inv.getItem(i).item === PaintAndSeekItems.paintBrush) inv.setItem(i, ItemStack.EMPTY)
-            }
-        }
-    }
-
     private fun clear(server: MinecraftServer) {
-        removeBrushes(server)
-        // Re-show participants on the locator bar.
-        seekerId?.let { server.playerList.getPlayer(it) }?.let { revealLocator(it) }
-        for (uuid in hiders.keys) server.playerList.getPlayer(uuid)?.let { revealLocator(it) }
+        val participants = buildList {
+            seekerId?.let { id -> server.playerList.getPlayer(id)?.let { add(it) } }
+            for (uuid in hiders.keys) server.playerList.getPlayer(uuid)?.let { add(it) }
+        }
+        if (participants.isNotEmpty()) {
+            runFunction(server, "execute as @a[tag=$TAG_PLAYER] at @s run function $NS:cleanup")
+        }
+        for (player in participants) revealLocator(player)
+        // Drop tags (covers any online stragglers too).
+        for (tag in listOf(TAG_SEEKER, TAG_HIDER, TAG_FOUND, TAG_PLAYER)) {
+            runFunction(server, "tag @a remove $tag")
+        }
+
         val scoreboard = server.scoreboard
         scoreboard.getObjective(OBJECTIVE_NAME)?.let { scoreboard.removeObjective(it) }
         scoreboard.getPlayerTeam(HIDER_TEAM)?.let { scoreboard.removePlayerTeam(it) }
