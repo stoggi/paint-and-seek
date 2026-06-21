@@ -30,6 +30,9 @@ import kotlin.math.tan
  */
 class PaintScreen : Screen(Component.literal("Paintjob")) {
 
+    // Brightness boost applied to eye-dropped albedo to offset entity face shading.
+    private val ENTITY_SHADE_COMP = 1.2
+
     // Colour picker — bottom-left.
     private val wheelX get() = 12
     private val wheelY get() = height - 12 - ColorWheel.SIZE
@@ -250,9 +253,13 @@ class PaintScreen : Screen(Component.literal("Paintjob")) {
                 val fx = (mouseX / sw * image.width).toInt().coerceIn(0, image.width - 1)
                 val fy = (mouseY / sh * image.height).toInt().coerceIn(0, image.height - 1)
                 val argb = image.getPixel(fx, fy)
-                val r = ((argb ushr 16 and 0xFF) * 255 / maxOf(1, lr)).coerceIn(0, 255)
-                val g = ((argb ushr 8 and 0xFF) * 255 / maxOf(1, lg)).coerceIn(0, 255)
-                val b = ((argb and 0xFF) * 255 / maxOf(1, lb)).coerceIn(0, 255)
+                // Compensate for entity directional face shading (the model shades
+                // faces by orientation, so the painted face renders a bit darker
+                // than its albedo).
+                val comp = ENTITY_SHADE_COMP
+                val r = ((argb ushr 16 and 0xFF) * 255.0 / maxOf(1, lr) * comp).toInt().coerceIn(0, 255)
+                val g = ((argb ushr 8 and 0xFF) * 255.0 / maxOf(1, lg) * comp).toInt().coerceIn(0, 255)
+                val b = ((argb and 0xFF) * 255.0 / maxOf(1, lb) * comp).toInt().coerceIn(0, 255)
                 PaintState.setFromArgb((0xFF shl 24) or (r shl 16) or (g shl 8) or b)
                 image.close()
             }
