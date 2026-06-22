@@ -20,6 +20,17 @@ data class SkinRect(val x: Int, val y: Int, val w: Int, val h: Int, val pixels: 
         buf.writeByteArray(SkinImage.toBytes(pixels))
     }
 
+    /**
+     * True if this rect is a well-formed, in-bounds patch of a 64x64 skin. Used to
+     * reject malformed/hostile patches at the network boundary (server and client)
+     * so a bad packet can never index out of the skin image.
+     */
+    fun fitsSkin(): Boolean =
+        w in 1..SkinImage.WIDTH && h in 1..SkinImage.HEIGHT &&
+            x >= 0 && y >= 0 &&
+            x + w <= SkinImage.WIDTH && y + h <= SkinImage.HEIGHT &&
+            pixels.size == w * h
+
     // data class generates equals/hashCode but IntArray uses identity; override for correctness.
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

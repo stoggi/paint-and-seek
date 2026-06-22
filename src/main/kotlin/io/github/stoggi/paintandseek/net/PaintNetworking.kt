@@ -2,9 +2,11 @@ package io.github.stoggi.paintandseek.net
 
 import io.github.stoggi.paintandseek.skin.ServerPoseStore
 import io.github.stoggi.paintandseek.skin.ServerSkinStore
+import io.github.stoggi.paintandseek.skin.SkinImage
 import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.player.Player
@@ -34,15 +36,21 @@ object PaintNetworking {
 
     fun registerServerHandlers() {
         // A hider painted a stroke: store it and forward the dirty rect to viewers.
+        // Reject malformed/out-of-bounds rects and throttle floods before doing work.
         ServerPlayNetworking.registerGlobalReceiver(SubmitSkinPatch.TYPE) { payload, ctx ->
             val player = ctx.player()
-            ServerSkinStore.applyPatch(player.uuid, payload.rect)
-            broadcastToViewers(player, SkinPatch(player.uuid, payload.rect))
+            val rect = payload.rect
+            if (!rect.fitsSkin()) return@registerGlobalReceiver
+            if (!PaintRateLimiter.allow(player.uuid, rect.pixels.size * 4)) return@registerGlobalReceiver
+            ServerSkinStore.applyPatch(player.uuid, rect)
+            broadcastToViewers(player, SkinPatch(player.uuid, rect))
         }
 
         // Full upload (on open / commit): replace the stored image and forward it.
         ServerPlayNetworking.registerGlobalReceiver(SubmitSkinSnapshot.TYPE) { payload, ctx ->
             val player = ctx.player()
+            if (payload.pixels.size != SkinImage.WIDTH * SkinImage.HEIGHT) return@registerGlobalReceiver
+            if (!PaintRateLimiter.allow(player.uuid, payload.pixels.size * 4)) return@registerGlobalReceiver
             ServerSkinStore.setSnapshot(player.uuid, payload.pixels)
             broadcastToViewers(player, SkinSnapshot(player.uuid, payload.pixels))
         }
@@ -50,8 +58,14 @@ object PaintNetworking {
         // Pose selection: store and forward to viewers so everyone sees the stance.
         ServerPlayNetworking.registerGlobalReceiver(SubmitPose.TYPE) { payload, ctx ->
             val player = ctx.player()
+            if (!PaintRateLimiter.allow(player.uuid, 4)) return@registerGlobalReceiver
             ServerPoseStore.set(player.uuid, payload.poseId)
             broadcastToViewers(player, PoseSync(player.uuid, payload.poseId))
+        }
+
+        // Release a player's rate-limit budget when they leave.
+        ServerPlayConnectionEvents.DISCONNECT.register { handler, _ ->
+            PaintRateLimiter.clear(handler.player.uuid)
         }
 
         // When a player starts tracking a painted player, send them the full skin

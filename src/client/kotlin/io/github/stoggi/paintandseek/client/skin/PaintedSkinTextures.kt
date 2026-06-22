@@ -36,7 +36,8 @@ object PaintedSkinTextures {
 
     /** Replace the whole skin for [uuid] with [pixels] (ARGB, 64x64 row-major). */
     fun applySnapshot(uuid: UUID, pixels: IntArray) {
-        require(pixels.size == SkinImage.WIDTH * SkinImage.HEIGHT) { "snapshot must be 64x64" }
+        // Drop malformed snapshots rather than crash on a hostile/buggy server.
+        if (pixels.size != SkinImage.WIDTH * SkinImage.HEIGHT) return
         val entry = entries.getOrPut(uuid) { createEntry(uuid) }
         var i = 0
         for (y in 0 until SkinImage.HEIGHT) {
@@ -49,6 +50,8 @@ object PaintedSkinTextures {
 
     /** Apply an incremental stroke [rect] for [uuid] and re-upload. */
     fun applyPatch(uuid: UUID, rect: SkinRect) {
+        // Reject out-of-bounds rects so a hostile server can't write past the image.
+        if (!rect.fitsSkin()) return
         val entry = entries.getOrPut(uuid) { createEntry(uuid) }
         var i = 0
         for (dy in 0 until rect.h) {
