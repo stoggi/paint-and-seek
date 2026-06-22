@@ -5,13 +5,13 @@
 	"name": "PaintAndSeek",
 	"description": "Hide-and-seek where hiders paint their skin in-game to blend into the environment.",
 	"authors": [
-		"Me!"
+		"stoggi"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://modrinth.com/mod/paint-and-seek",
+		"sources": "https://github.com/stoggi/paint-and-seek"
 	},
-	"license": "CC0-1.0",
+	"license": "MIT",
 	"icon": "assets/paintandseek/icon.png",
 	"environment": "*",
 	"entrypoints": {
