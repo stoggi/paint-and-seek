@@ -33,7 +33,7 @@ object PaintState {
     /** Restrict picking to one part group so obscured faces stay reachable. */
     var partFilter: PartFilter = PartFilter.ALL
 
-    /** Transparent ("eraser") mode — only valid on the overlay layer. */
+    /** Transparent ("eraser") mode - only valid on the overlay layer. */
     var transparentMode: Boolean = false
         private set
 

@@ -29,7 +29,7 @@ object PaintMode {
         val mc = Minecraft.getInstance()
         val player = mc.player ?: return
 
-        // Seed the painted skin from the real skin ONLY the first time — once a
+        // Seed the painted skin from the real skin ONLY the first time - once a
         // painted skin exists, re-entering keeps the player's progress. The read
         // may be async (GPU readback for custom skins), so apply in the callback.
         if (!PaintedSkinTextures.has(player.uuid)) {

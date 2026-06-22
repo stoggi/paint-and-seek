@@ -1,4 +1,4 @@
-# PaintAndSeek — example datapack
+# PaintAndSeek - example datapack
 
 This is a ready-to-edit copy of PaintAndSeek's default round scripts. The mod ships
 these same functions built in; dropping this datapack into a world lets you
@@ -26,10 +26,10 @@ round lifecycle points; your versions take priority over the built-in defaults.
 | `reset`           | a new round starts                     | server |
 
 ## Participant tags (target these in your own commands/functions)
-- `paintandseek.player` — everyone in the round
-- `paintandseek.seeker` — the seeker
-- `paintandseek.hider`  — the hiders
-- `paintandseek.found`  — hiders who've been found
+- `paintandseek.player` - everyone in the round
+- `paintandseek.seeker` - the seeker
+- `paintandseek.hider` - the hiders
+- `paintandseek.found` - hiders who've been found
 
 The mod handles the engine (roles, timers, FOV scoring, found detection, win
 conditions, hidden nametags, locator-bar hiding, scoreboard).

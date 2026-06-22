@@ -51,7 +51,7 @@ enum class PaintPose(
     ),
     // ---- ground poses: limbs arranged + whole body tipped flat (or lowered, for SIT) ----
     // GROUND_LIFT lifts tipped bodies so their thickness clears the floor instead
-    // of half-embedding in it. One shared knob — tune if they float or still sink.
+    // of half-embedding in it. One shared knob - tune if they float or still sink.
     STARFISH(
         "Starfish",
         rightArm = LimbRot(z = deg(125f)), leftArm = LimbRot(z = deg(-125f)),

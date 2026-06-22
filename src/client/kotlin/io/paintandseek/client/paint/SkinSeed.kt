@@ -47,7 +47,7 @@ object SkinSeed {
     private fun readFromGpu(mc: Minecraft, id: net.minecraft.resources.Identifier, onReady: (IntArray) -> Unit) {
         val gpu = mc.textureManager.getTexture(id).texture
         if (gpu.getWidth(0) != SkinImage.WIDTH || gpu.getHeight(0) != SkinImage.HEIGHT) {
-            PaintAndSeek.LOGGER.warn("SkinSeed: can't read skin texture '{}' from GPU — using grey base", id)
+            PaintAndSeek.LOGGER.warn("SkinSeed: can't read skin texture '{}' from GPU - using grey base", id)
             return onReady(greyBase())
         }
         val width = SkinImage.WIDTH
@@ -70,7 +70,7 @@ object SkinSeed {
                     onReady(pixels)
                 }
             } catch (e: Exception) {
-                PaintAndSeek.LOGGER.warn("SkinSeed: GPU readback of '{}' failed — using grey base", id, e)
+                PaintAndSeek.LOGGER.warn("SkinSeed: GPU readback of '{}' failed - using grey base", id, e)
                 onReady(greyBase())
             } finally {
                 buffer.close()

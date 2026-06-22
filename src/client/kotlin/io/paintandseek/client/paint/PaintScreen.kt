@@ -24,7 +24,7 @@ import kotlin.math.tan
  *
  * Controls:
  *  - Left-click / drag on the model: paint the picked texel.
- *  - Right-click anywhere: eye-dropper — sample the on-screen pixel as the colour.
+ *  - Right-click anywhere: eye-dropper - sample the on-screen pixel as the colour.
  *  - Colour wheel + value slider + transparent swatch (bottom-left).
  *  - Layer toggle + brush size slider (right side). WASD/arrows orbit, scroll zooms.
  */
@@ -33,7 +33,7 @@ class PaintScreen : Screen(Component.literal("PaintAndSeek")) {
     // Brightness boost applied to eye-dropped albedo to offset entity face shading.
     private val ENTITY_SHADE_COMP = 1.2
 
-    // Colour picker — bottom-left.
+    // Colour picker - bottom-left.
     private val wheelX get() = 12
     private val wheelY get() = height - 12 - ColorWheel.SIZE
     private val valueSliderX get() = wheelX + ColorWheel.SIZE + 10
@@ -47,7 +47,7 @@ class PaintScreen : Screen(Component.literal("PaintAndSeek")) {
     private val transY get() = swatchY
     private val transSize = 24
 
-    // Controls — right side.
+    // Controls - right side.
     private val controlW = 130
     private val controlX get() = width - 12 - controlW
     private val toggleX get() = controlX
@@ -62,7 +62,7 @@ class PaintScreen : Screen(Component.literal("PaintAndSeek")) {
     private val brushSliderW get() = controlW
     private val brushSliderH = 10
 
-    // Pose buttons — a 2-column grid above the brush controls (rows grow with the
+    // Pose buttons - a 2-column grid above the brush controls (rows grow with the
     // number of poses).
     private val poseColW get() = (controlW - 4) / 2
     private val poseRowStep = 18
@@ -178,7 +178,7 @@ class PaintScreen : Screen(Component.literal("PaintAndSeek")) {
         PaintState.lastHit = PaintRaycaster.pick(mc, mouseX, mouseY, width, height, type, layer, pose, filter)
 
         // Sample a grid of rays across the brush footprint (half-texel resolution)
-        // and, for each, paint EVERY camera-facing texel the ray passes through —
+        // and, for each, paint EVERY camera-facing texel the ray passes through -
         // so occluded-but-visible surfaces (e.g. inner arm behind the body) under
         // the brush get painted too.
         val size = PaintState.brushSize
@@ -242,7 +242,7 @@ class PaintScreen : Screen(Component.literal("PaintAndSeek")) {
         // exact lightmap colour at the player's light level (read from the GPU
         // lightmap, which already encodes time-of-day, gamma and tint) to recover
         // the albedo, so the normally-lit painted skin lands on the sampled colour
-        // — and still reacts to light afterwards.
+        // - and still reacts to light afterwards.
         val player = mc.player ?: return
         val level = mc.level ?: return
         val pos = player.blockPosition()
@@ -323,7 +323,7 @@ class PaintScreen : Screen(Component.literal("PaintAndSeek")) {
         graphics.fill(swatchX - 1, swatchY - 1, swatchX + swatchSize + 1, swatchY + swatchSize + 1, if (!PaintState.transparentMode) select else black)
         graphics.fill(swatchX, swatchY, swatchX + swatchSize, swatchY + swatchSize, PaintState.colorArgb)
 
-        // Transparent ("eraser") checker swatch — only meaningful on the overlay.
+        // Transparent ("eraser") checker swatch - only meaningful on the overlay.
         val transUsable = PaintState.layer == SkinLayer.OVERLAY
         graphics.fill(transX - 1, transY - 1, transX + transSize + 1, transY + transSize + 1, if (PaintState.transparentMode) select else black)
         drawChecker(graphics, transX, transY, transSize, if (transUsable) 0xFFFFFFFF.toInt() else 0xFF777777.toInt(), if (transUsable) 0xFFB0B0B0.toInt() else 0xFF555555.toInt())
@@ -406,7 +406,7 @@ class PaintScreen : Screen(Component.literal("PaintAndSeek")) {
     private fun renderHud(graphics: GuiGraphicsExtractor) {
         val white = 0xFFFFFFFF.toInt()
         val hit = PaintState.lastHit
-        val text = if (hit != null) "${hit.part} (${hit.texelX}, ${hit.texelY})" else "no hit — aim at your character"
+        val text = if (hit != null) "${hit.part} (${hit.texelX}, ${hit.texelY})" else "no hit - aim at your character"
         graphics.text(this.font, text, 12, 12, white, true)
         graphics.text(this.font, "L paint · R eye-drop · WASD orbit · scroll zoom · Esc", 12, 24, 0xFFBBBBBB.toInt(), true)
     }

@@ -33,8 +33,8 @@ import kotlin.math.cos
  *
  * The mod runs the "engine" (role assignment, phase timers, FOV scoring,
  * spectral-arrow detection, win conditions, hidden nametags + locator bar, the
- * scoreboard) and tags participants. Everything customisable — giving items,
- * titles, effects, announcements — is delegated to editable datapack functions
+ * scoreboard) and tags participants. Everything customisable - giving items,
+ * titles, effects, announcements - is delegated to editable datapack functions
  * under the `paintandseek:` namespace (the .mcfunction files in
  * data/paintandseek/function), which run at lifecycle hooks and can be
  * overridden by any datapack.

@@ -89,7 +89,7 @@ echo "Set client options (pauseOnLostFocus=false, music muted)."
 NOCOMPILE="-x compileJava -x compileKotlin -x compileClientJava -x compileClientKotlin -x processResources -x processClientResources"
 echo "Building once up front (log: $LOGDIR/build.log)..."
 if ! ./gradlew --no-daemon build > "$LOGDIR/build.log" 2>&1; then
-  echo "Build failed — see $LOGDIR/build.log"; exit 1
+  echo "Build failed - see $LOGDIR/build.log"; exit 1
 fi
 echo "Build done."
 
@@ -98,7 +98,7 @@ echo "Starting server (log: $LOGDIR/server.log)..."
 tail -f /dev/null | ./gradlew --no-daemon $NOCOMPILE runServer > "$LOGDIR/server.log" 2>&1 &
 until grep -q "Done (" "$LOGDIR/server.log" 2>/dev/null; do
   if grep -qE "BUILD FAILED|Caused by:" "$LOGDIR/server.log" 2>/dev/null; then
-    echo "Server failed to start — see $LOGDIR/server.log"; stop; exit 1
+    echo "Server failed to start - see $LOGDIR/server.log"; stop; exit 1
   fi
   sleep 2
 done
@@ -116,7 +116,7 @@ for i in "${!PLAYERS[@]}"; do
     --args="--username $n --quickPlayMultiplayer $SERVER_ADDR" > "$LOGDIR/$n.log" 2>&1 &
   until grep -q "Setting user:" "$LOGDIR/$n.log" 2>/dev/null; do
     if grep -qE "BUILD FAILED" "$LOGDIR/$n.log" 2>/dev/null; then
-      echo "  $n failed to build — see $LOGDIR/$n.log"; break
+      echo "  $n failed to build - see $LOGDIR/$n.log"; break
     fi
     sleep 2
   done

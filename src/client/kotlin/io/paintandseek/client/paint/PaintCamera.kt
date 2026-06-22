@@ -10,8 +10,8 @@ import org.lwjgl.glfw.GLFW
  * camera around the player; WASD / arrow keys orbit and the scroll wheel zooms.
  *
  * The player's body stays put (model yaw is fixed while the screen is open), so
- * orbiting the camera lets you reach every side to paint, and the raycaster —
- * which reads the live camera — follows automatically.
+ * orbiting the camera lets you reach every side to paint, and the raycaster -
+ * which reads the live camera - follows automatically.
  */
 object PaintCamera {
     /** Camera look yaw/pitch (degrees) and orbit distance (blocks). */

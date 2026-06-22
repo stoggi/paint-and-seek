@@ -41,7 +41,7 @@ data class TexelHit(
 
 /**
  * One axis-aligned quad face of a model cuboid, in model-pixel space (neutral
- * standing pose, all limb rotations zero — the pose we freeze while painting).
+ * standing pose, all limb rotations zero - the pose we freeze while painting).
  *
  * Stored in the compact form the raycast needs: an origin corner plus the two
  * edge vectors, and the texel coordinates at those corners. The face is a
@@ -124,8 +124,8 @@ object PlayerModelGeometry {
     /**
      * Texels (64x64) owned by the given [layer]'s faces (texel ownership doesn't
      * depend on pose). Used to keep an eraser stroke from clearing texels that
-     * belong to the other layer — so painting transparency on the overlay can
-     * never clear the base skin — and to confine painting to the selected layer.
+     * belong to the other layer - so painting transparency on the overlay can
+     * never clear the base skin - and to confine painting to the selected layer.
      */
     fun layerMask(type: SkinModelType, layer: SkinLayer): BooleanArray =
         maskCache.getOrPut(Key(type, layer, PaintPose.DEFAULT)) {
@@ -170,7 +170,7 @@ object PlayerModelGeometry {
     }
 
     /**
-     * Every front-facing (camera-facing) face the ray passes through — not just
+     * Every front-facing (camera-facing) face the ray passes through - not just
      * the nearest. Lets a brush paint occluded-but-visible-facing surfaces (e.g.
      * the inner arm behind the body) that fall under the brush footprint. Adds
      * texel indices that pass [mask] into [out].
@@ -230,9 +230,9 @@ object PlayerModelGeometry {
         rot: LimbRot = LimbRot.NONE,
     ) {
         // Geometry is inflated by [grow] (overlay layers), but the UV unwrap still
-        // uses the original w/h/d — exactly as ModelPart.Cube does. Corners are
+        // uses the original w/h/d - exactly as ModelPart.Cube does. Corners are
         // built relative to the pivot, rotated by [rot] (ModelPart's ZYX order),
-        // then translated to the pivot — matching the rendered posed model.
+        // then translated to the pivot - matching the rendered posed model.
         val lminX = ox - grow
         val lminY = oy - grow
         val lminZ = oz - grow
@@ -272,7 +272,7 @@ object PlayerModelGeometry {
         val v1 = texV + d
         val v2 = texV + d + h
 
-        // face(verts p0,p1,p2,p3 ; uvRect uA,vA,uB,vB ; outward normal) — texel
+        // face(verts p0,p1,p2,p3 ; uvRect uA,vA,uB,vB ; outward normal) - texel
         // mapping: p0->(uB,vA) p1->(uA,vA) p2->(uA,vB) p3->(uB,vB)
         out += face(part, l1, l0, t0, t1, u1, v0, u2, v1, n(0f, -1f, 0f)) // DOWN  (-Y)
         out += face(part, t2, t3, l3, l2, u2, v1, u22, v0, n(0f, 1f, 0f)) // UP    (+Y)

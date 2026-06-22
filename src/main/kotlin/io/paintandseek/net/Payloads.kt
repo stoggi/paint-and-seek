@@ -9,7 +9,7 @@ import java.util.UUID
 
 /**
  * A rectangular region of changed skin pixels. Used for live, incremental
- * "paint stroke" syncing — only the dirty rect travels the wire.
+ * "paint stroke" syncing - only the dirty rect travels the wire.
  */
 data class SkinRect(val x: Int, val y: Int, val w: Int, val h: Int, val pixels: IntArray) {
     fun write(buf: FriendlyByteBuf) {

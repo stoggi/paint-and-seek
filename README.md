@@ -6,13 +6,13 @@ This mod was inspired by Meccha Chameleon ([on Steam](https://store.steampowered
 
 ![A player painting their skin to blend into a village](art/description.png)
 
-**[⬇ Download on Modrinth](https://modrinth.com/mod/paint-and-seek)**
+**[Download on Modrinth](https://modrinth.com/mod/paint-and-seek)**
 
 ## Requirements
 
 You need:
 
-- This mod — [on Modrinth](https://modrinth.com/mod/paint-and-seek)
+- This mod ([on Modrinth](https://modrinth.com/mod/paint-and-seek))
 - [Fabric Loader](https://fabricmc.net/use/) (≥ 0.19.3)
 - [Fabric API](https://modrinth.com/mod/fabric-api)
 - [Fabric Language Kotlin](https://modrinth.com/mod/fabric-language-kotlin)
@@ -22,7 +22,7 @@ Drop the jar into your `mods/` folder on both the client and the server (it runs
 
 ## How to play
 
-Start a multiplayer game and pick a starting location — a village is a great first round. Then an operator runs:
+Start a multiplayer game and pick a starting location: a village is a great first round. Then an operator runs:
 
 ```
 /paintandseek newround
@@ -30,19 +30,19 @@ Start a multiplayer game and pick a starting location — a village is a great f
 
 A seeker is chosen automatically and given **blindness** (so they can't peek), a **paintbrush**, and a **bow with spectral arrows**. Everyone else becomes a hider and gets a **paintbrush**. The round has two phases:
 
-1. **Hide** — the seeker is blind while hiders scatter, paint themselves, and strike a pose to blend in.
-2. **Seek** — the seeker's blindness lifts and the hunt begins.
+1. **Hide**: the seeker is blind while hiders scatter, paint themselves, and strike a pose to blend in.
+2. **Seek**: the seeker's blindness lifts and the hunt begins.
 
-The longer a hider stays in the seeker's view — and the closer they are while in view — the more points they rack up. The seeker must hit a hider with a **spectral arrow** to stop that hider's point counter. If hiders survive until the seek timer runs out, the **hiders win**; if every hider is tagged first, the **seeker wins**.
+The longer a hider stays in the seeker's view, and the closer they are while in view, the more points they rack up. The seeker must hit a hider with a **spectral arrow** to stop that hider's point counter. If hiders survive until the seek timer runs out, the **hiders win**; if every hider is tagged first, the **seeker wins**.
 
 ### Painting
 
 Right-click with the paintbrush in hand to open the paint screen:
 
-- **Right-click** — eye-dropper a colour from anywhere on screen (paint with the exact colour of the block you want to hide against).
-- **Left-click** — paint that colour onto your skin.
-- **W / A / S / D** — orbit the camera around your model.
-- Pick a **pose** from the side panel — `Default`, `T-Pose`, `Arms Up`, `Arms Fwd`, `Legs Out`, `Star`, `Starfish`, `Lie Flat`, `Ball`, `Sit` — to flatten yourself against a wall, lie on the ground, or curl into a block shape.
+- **Right-click**: eye-dropper a colour from anywhere on screen (paint with the exact colour of the block you want to hide against).
+- **Left-click**: paint that colour onto your skin.
+- **W / A / S / D**: orbit the camera around your model.
+- Pick a **pose** from the side panel (`Default`, `T-Pose`, `Arms Up`, `Arms Fwd`, `Legs Out`, `Star`, `Starfish`, `Lie Flat`, `Ball`, `Sit`) to flatten yourself against a wall, lie on the ground, or curl into a block shape.
 
 Your painted skin and pose sync live to everyone who can see you, so you can blend in real time.
 
@@ -73,7 +73,7 @@ The mod splits responsibilities between a server-side "engine" and editable data
 
 ## Customising rounds with a datapack
 
-The mod runs the game engine, but everything cosmetic — items handed out, titles, sounds, effects, win announcements — is delegated to **editable `.mcfunction` hooks** in the `paintandseek` namespace. A drop-in example datapack ships alongside the jar (`paintandseek-datapack-<version>.zip`); copy it into your world's `datapacks/` folder and edit the functions, or override them from your own datapack.
+The mod runs the game engine, but everything cosmetic (items handed out, titles, sounds, effects, win announcements) is delegated to **editable `.mcfunction` hooks** in the `paintandseek` namespace. A drop-in example datapack ships alongside the jar (`paintandseek-datapack-<version>.zip`); copy it into your world's `datapacks/` folder and edit the functions, or override them from your own datapack.
 
 The engine tags participants so your functions can target them with selectors:
 
@@ -110,7 +110,7 @@ title @a[tag=paintandseek.hider] title {"text":"HIDE!","bold":true,"color":"gree
 
 ## Building from source
 
-The build provisions JDK 25 automatically (via the Foojay toolchain resolver) — no system-wide JDK install is required.
+The build provisions JDK 25 automatically (via the Foojay toolchain resolver), so no system-wide JDK install is required.
 
 ```
 ./gradlew build

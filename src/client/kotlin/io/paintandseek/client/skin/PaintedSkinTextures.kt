@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap
  * For each painted player we hold a [NativeImage] backing a GPU [DynamicTexture]
  * registered under a stable [Identifier]. The `AbstractClientPlayer.getSkin`
  * mixin swaps the body texture to that id, and [AvatarRenderer] re-reads it every
- * frame — so uploads here are reflected live on the model.
+ * frame - so uploads here are reflected live on the model.
  *
  * All access happens on the client thread (network receivers are scheduled there).
  */
