@@ -73,7 +73,7 @@ The mod splits responsibilities between a server-side "engine" and editable data
 
 ## Customising rounds with a datapack
 
-The mod runs the game engine, but everything cosmetic (items handed out, titles, sounds, effects, win announcements) is delegated to **editable `.mcfunction` hooks** in the `paintandseek` namespace. A drop-in example datapack ships alongside the jar (`paintandseek-datapack-<version>.zip`); copy it into your world's `datapacks/` folder and edit the functions, or override them from your own datapack.
+The mod runs the game engine, but everything cosmetic (items handed out, titles, sounds, effects, win announcements) is delegated to **editable `.mcfunction` hooks** in the `paintandseek` namespace. A drop-in example datapack ships alongside the jar (`paintandseek-example-datapack-<version>.zip`); copy it into your world's `datapacks/` folder and edit the functions, or override them from your own datapack.
 
 The engine tags participants so your functions can target them with selectors:
 

@@ -77,7 +77,7 @@ val datapackZip by tasks.registering(Zip::class) {
 	group = "build"
 	dependsOn(syncExampleDatapack) // ensure the functions are current first
 	from("example-datapack/paintandseek-defaults")
-	archiveFileName = "paintandseek-datapack-${project.version}.zip"
+	archiveFileName = "paintandseek-example-datapack-${project.version}.zip"
 	destinationDirectory = layout.buildDirectory.dir("libs")
 }
 
