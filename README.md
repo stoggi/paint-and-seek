@@ -1,16 +1,18 @@
 # PaintAndSeek
 
-**Hide-and-seek in Minecraft where hiders paint their own skin, in-game, to blend into the world around them.**
+**Hide in plain sight, with a paintbrush and some hubris.**
 
 This mod was inspired by Meccha Chameleon ([on Steam](https://store.steampowered.com/app/4704690/MECCHA_CHAMELEON/)). I wanted to play it with my kids after seeing some of our favourite Minecraft content creators playing the game together ([on YouTube](https://www.youtube.com/playlist?list=PLDP3UVRoiapQu6ty4xWZUtM6LcFJaqYuE)), but Meccha is Windows only. So over a weekend, with the help of Claude Code, I put together this mod to play a similar style of game in Minecraft. :)
 
 ![A player painting their skin to blend into a village](art/description.png)
 
+**[⬇ Download on Modrinth](https://modrinth.com/mod/paint-and-seek)**
+
 ## Requirements
 
 You need:
 
-- This mod
+- This mod — [on Modrinth](https://modrinth.com/mod/paint-and-seek)
 - [Fabric Loader](https://fabricmc.net/use/) (≥ 0.19.3)
 - [Fabric API](https://modrinth.com/mod/fabric-api)
 - [Fabric Language Kotlin](https://modrinth.com/mod/fabric-language-kotlin)
