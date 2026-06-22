@@ -1,6 +1,6 @@
 {
 	"required": true,
-	"package": "io.paintandseek.client.mixin",
+	"package": "io.github.stoggi.paintandseek.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"AbstractClientPlayerMixin",

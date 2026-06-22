@@ -17,19 +17,19 @@
 	"entrypoints": {
 		"main": [
 			{
-				"value": "io.paintandseek.PaintAndSeek",
+				"value": "io.github.stoggi.paintandseek.PaintAndSeek",
 				"adapter": "kotlin"
 			}
 		],
 		"client": [
 			{
-				"value": "io.paintandseek.client.PaintAndSeekClient",
+				"value": "io.github.stoggi.paintandseek.client.PaintAndSeekClient",
 				"adapter": "kotlin"
 			}
 		],
 		"fabric-datagen": [
 			{
-				"value": "io.paintandseek.client.PaintAndSeekDataGenerator",
+				"value": "io.github.stoggi.paintandseek.client.PaintAndSeekDataGenerator",
 				"adapter": "kotlin"
 			}
 		]

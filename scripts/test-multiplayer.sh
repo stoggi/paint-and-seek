@@ -85,7 +85,7 @@ echo "Set client options (pauseOnLostFocus=false, music muted)."
 # (NOCOMPILE). Otherwise each client's separate --project-cache-dir has no
 # up-to-date history and recompiles into the SHARED build/ dir while siblings are
 # already running, intermittently blanking a .class mid-write (e.g. a lazy load of
-# io.paintandseek.skin.SkinImage -> NoClassDefFoundError). Build once, then freeze.
+# io.github.stoggi.paintandseek.skin.SkinImage -> NoClassDefFoundError). Build once, then freeze.
 NOCOMPILE="-x compileJava -x compileKotlin -x compileClientJava -x compileClientKotlin -x processResources -x processClientResources"
 echo "Building once up front (log: $LOGDIR/build.log)..."
 if ! ./gradlew --no-daemon build > "$LOGDIR/build.log" 2>&1; then
