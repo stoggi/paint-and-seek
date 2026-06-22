@@ -49,6 +49,8 @@ tasks.processResources {
 	val version = version
 	inputs.property("version", version)
 
+	exclude("**/.DS_Store") // keep macOS cruft out of the built jar
+
 	filesMatching("fabric.mod.json") {
 		expand("version" to version)
 	}
@@ -62,6 +64,7 @@ val syncExampleDatapack by tasks.registering(Sync::class) {
 	group = "build"
 	from("src/main/resources/data/paintandseek/function")
 	into("example-datapack/paintandseek-defaults/data/paintandseek/function")
+	exclude("**/.DS_Store")
 }
 
 // Keep the example datapack in sync whenever resources are processed (build/run).
@@ -77,6 +80,7 @@ val datapackZip by tasks.registering(Zip::class) {
 	group = "build"
 	dependsOn(syncExampleDatapack) // ensure the functions are current first
 	from("example-datapack/paintandseek-defaults")
+	exclude("**/.DS_Store") // keep macOS cruft out of the shipped zip
 	archiveFileName = "paintandseek-example-datapack-${project.version}.zip"
 	destinationDirectory = layout.buildDirectory.dir("libs")
 }
