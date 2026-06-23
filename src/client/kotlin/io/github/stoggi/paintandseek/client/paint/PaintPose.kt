@@ -9,8 +9,22 @@ data class LimbRot(val x: Float = 0f, val y: Float = 0f, val z: Float = 0f) {
 
 private fun deg(d: Float): Float = Math.toRadians(d.toDouble()).toFloat()
 
-/** Upward nudge (blocks) for tipped ground poses so the body rests on the floor. */
-private const val GROUND_LIFT = 0.1f
+/**
+ * Upward nudge (blocks) for tipped ground poses. The model pivots about the feet, so
+ * tipping it flat leaves the body's thickness straddling floor level (half embedded);
+ * this lifts it to rest on top. The hitbox doesn't reposition the render, so this knob
+ * is still needed. Scales with the entity (so it works at the 0.5 hider scale too).
+ * Tune if poses float (reduce) or still sink (raise).
+ */
+private const val GROUND_LIFT = 0.15f
+
+/**
+ * Forward nudge (blocks) for tipped ground poses. Tipping about the feet lays the body
+ * out entirely to one side, so the shadow/feet sit at one end instead of under the body.
+ * This pulls the body back by ~half its length so it's centred on the entity (its
+ * shadow). Negative = toward the feet; flip the sign if it shifts the body the wrong way.
+ */
+private const val GROUND_CENTER = -0.9f
 
 /**
  * A selectable full-body pose. Poses rotate the limbs so painters can reach
@@ -50,25 +64,24 @@ enum class PaintPose(
         rightLeg = LimbRot(z = deg(20f)), leftLeg = LimbRot(z = deg(-20f)),
     ),
     // ---- ground poses: limbs arranged + whole body tipped flat (or lowered, for SIT) ----
-    // GROUND_LIFT lifts tipped bodies so their thickness clears the floor instead
-    // of half-embedding in it. One shared knob - tune if they float or still sink.
+    // GROUND_LIFT raises the tipped body so it rests on the floor instead of embedding.
     STARFISH(
         "Starfish",
         rightArm = LimbRot(z = deg(125f)), leftArm = LimbRot(z = deg(-125f)),
         rightLeg = LimbRot(z = deg(20f)), leftLeg = LimbRot(z = deg(-20f)),
-        bodyPitch = deg(90f), bodyOffsetY = GROUND_LIFT,
+        bodyPitch = deg(90f), bodyOffsetY = GROUND_LIFT, bodyOffsetZ = GROUND_CENTER,
     ),
     LIE_FLAT(
         "Lie Flat",
         // Arms together, straight along the body (default limb angles), tipped flat.
-        bodyPitch = deg(90f), bodyOffsetY = GROUND_LIFT,
+        bodyPitch = deg(90f), bodyOffsetY = GROUND_LIFT, bodyOffsetZ = GROUND_CENTER,
     ),
     BALL(
         "Ball",
         // Limbs curled toward the chest, then tipped onto the ground.
         rightArm = LimbRot(x = deg(-155f)), leftArm = LimbRot(x = deg(-155f)),
         rightLeg = LimbRot(x = deg(-150f)), leftLeg = LimbRot(x = deg(-150f)),
-        bodyPitch = deg(90f), bodyOffsetY = GROUND_LIFT,
+        bodyPitch = deg(90f), bodyOffsetY = GROUND_LIFT, bodyOffsetZ = GROUND_CENTER,
     ),
     SIT(
         "Sit",

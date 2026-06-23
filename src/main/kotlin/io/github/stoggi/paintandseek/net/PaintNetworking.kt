@@ -60,6 +60,7 @@ object PaintNetworking {
             val player = ctx.player()
             if (!PaintRateLimiter.allow(player.uuid, 4)) return@registerGlobalReceiver
             ServerPoseStore.set(player.uuid, payload.poseId)
+            player.refreshDimensions() // resize the collision/hit box to match the new pose
             broadcastToViewers(player, PoseSync(player.uuid, payload.poseId))
         }
 

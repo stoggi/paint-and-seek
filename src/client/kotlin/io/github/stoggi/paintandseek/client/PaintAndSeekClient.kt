@@ -1,5 +1,6 @@
 package io.github.stoggi.paintandseek.client
 
+import io.github.stoggi.paintandseek.client.paint.ClientPoseHitbox
 import io.github.stoggi.paintandseek.client.paint.ClientPoseStore
 import io.github.stoggi.paintandseek.client.paint.PaintMode
 import io.github.stoggi.paintandseek.client.paint.PaintPose
@@ -10,6 +11,7 @@ import io.github.stoggi.paintandseek.net.PoseSync
 import io.github.stoggi.paintandseek.net.SkinPatch
 import io.github.stoggi.paintandseek.net.SkinSnapshot
 import net.fabricmc.api.ClientModInitializer
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.fabricmc.fabric.api.event.player.UseItemCallback
@@ -34,6 +36,9 @@ object PaintAndSeekClient : ClientModInitializer {
                 InteractionResult.PASS
             }
         }
+
+        // Keep posed players' client bounding box in sync with their pose/yaw.
+        ClientTickEvents.END_CLIENT_TICK.register(ClientTickEvents.EndTick { ClientPoseHitbox.tick() })
 
         // Don't leak GPU textures across server hops; also leave paint mode.
         ClientPlayConnectionEvents.DISCONNECT.register { _, _ ->

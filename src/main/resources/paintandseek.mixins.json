@@ -2,7 +2,9 @@
 	"required": true,
 	"package": "io.github.stoggi.paintandseek.mixin",
 	"compatibilityLevel": "JAVA_25",
-	"mixins": [],
+	"mixins": [
+		"EntityBoundingBoxMixin"
+	],
 	"injectors": {
 		"defaultRequire": 1
 	},

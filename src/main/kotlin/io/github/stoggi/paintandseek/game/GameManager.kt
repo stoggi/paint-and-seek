@@ -260,6 +260,8 @@ object GameManager {
         for (uuid in participants) {
             ServerSkinStore.clear(uuid)
             ServerPoseStore.clear(uuid)
+            // Drop the posed collision/hit box back to the default upright one.
+            server.playerList.getPlayer(uuid)?.refreshDimensions()
         }
         for (viewer in server.playerList.players) {
             for (uuid in participants) {
